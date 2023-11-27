@@ -13,6 +13,7 @@
 #include "cJSON.h"
 
 #pragma comment(lib, "ws2_32.lib") // 链接Winsock库
+
 #else // 如果是Linux系统
 #include "plugin.h"
 #include <sys/stat.h>
@@ -28,37 +29,39 @@
 
 
 typedef struct GTYPE GTYPE;
+
 GtkWidget *com_source = NULL;   /* window component: drag source */
 GtkWidget *gen_case = NULL;     /* window component: drag destination */
-
 GtkWidget *para_set = NULL;     /* TBD */
-GtkWidget *para2_set = NULL;     /* TBD */
+GtkWidget *para2_set = NULL;    /* TBD */
 
-GtkWidget *export_btn = NULL;   /* menu component: export button */
-GtkWidget *open_btn = NULL;     /* menu component: open button */
-GtkWidget *save_btn = NULL;   /* menu component: save button */
-GtkWidget *run_btn = NULL;   /* menu component: run button */
+GtkWidget *save_btn = NULL;         /* menu component: save button */
+GtkWidget *open_btn = NULL;         /* menu component: open button */
+GtkWidget *export_btn = NULL;       /* menu component: export button */
+GtkWidget *properities_btn = NULL;  /* menu component: properities button */
+GtkWidget *import_btn = NULL;       /* menu component: import button */
 
-GtkWidget *toolbar_run_btn = NULL;   /* toolbar component: run button */
-GtkWidget *toolbar_debug_btn = NULL;   /* toolbar component: debug button */
-GtkWidget *toolbar_debug_step_btn = NULL;   /* toolbar component: step_throuth button */
-GtkWidget *toolbar_debug_execute_btn = NULL;   /* toolbar component: debug_execute button */
-GtkWidget *import_btn = NULL;   /* menu component: import button */
-GtkWidget *peoperities_btn = NULL;/* menu component: peoperities button */
-GtkWidget *toolbar_add_case_btn = NULL;   /* menu component: import button */
+GtkWidget *run_btn = NULL;  /* menu component: run button */
 
-int com_source_index;           /* index of drag source window in notebook */
-int gen_case_index;             /* index of drag destination window in notebook */
-int para_set_index;             /* TBD */
-int para2_set_index;             /* TBD */
+GtkWidget *toolbar_add_case_btn = NULL;         /* toolbar component: toolbar_add_case button */
+GtkWidget *toolbar_run_btn = NULL;              /* toolbar component: run button */
+GtkWidget *toolbar_debug_btn = NULL;            /* toolbar component: debug button */
+GtkWidget *toolbar_debug_step_btn = NULL;       /* toolbar component: step_debug button */
+GtkWidget *toolbar_debug_execute_btn = NULL;    /* toolbar component: debug_execute button */
 
-char* current_pwd = NULL;       /* 定位到geany的插件目录 */
+
+int com_source_index;   /* index of drag source window in notebook */
+int gen_case_index;     /* index of drag destination window in notebook */
+int para_set_index;     /* TBD */
+int para2_set_index;    /* TBD */
+
+char* current_pwd = NULL;   /* 定位到geany的插件目录 */
+
+GeanyPlugin *tep_geany = NULL;  /* geany application entry */
 
 /**
  * 下方状态栏使用变量
  */
-GeanyPlugin *tep_geany = NULL;  /* geany application entry */
-
 GtkWidget *debug_text = NULL;
 GtkTextBuffer *debug_textbuffer = NULL;
 GtkTextIter debug_start,debug_end;
@@ -69,12 +72,9 @@ GtkTextBuffer *file_textbuffer = NULL;
 GtkTextIter file_start,file_end;
 GtkTextMark* file_mark = NULL;
 
-/**
- * execute结构体
- */
 FunctionInfo *functions = NULL;
 int num_functions = 0;
-char* drag_component_name = NULL;//拖动组件名称
+char* drag_component_name = NULL;   //拖动组件名称
 
 /**
  *文件配置
@@ -91,7 +91,7 @@ char* default_open_file_path;
 gboolean default_xml_is_vaild;
 
 int content_index=0;
-int main_index=1;//控制主循环
+int main_index=1;   //控制主循环
 
 GArray *code_array = NULL;
 GArray *thread_array = NULL;
@@ -112,14 +112,13 @@ GArray *debug_point = NULL;
 GArray *receive_json_array = NULL;
 int receive_json_array_len ;
 
-gpointer executing_row_model;       //正在执行的类
-int executing_classId = 0;       //正在执行的类id
+gpointer executing_row_model;   //正在执行的类
+int executing_classId = 0;      //正在执行的类id
 
 GValue value_py ;
 GValue value_py_sys_inter ;
 GValue value_import_api_path;
 GValue value_import_api_status;
-
 
 guint current_drag_windows = 0;
 
@@ -129,12 +128,11 @@ gboolean gen_case_click_is_row;
 gboolean debug_windows_state;
 gboolean socket_mess_lock;
 
-
 int socket_client_id = 0;
 int socket_server_id = 0;
 
 int json_num = 0;
-int updete_thread_id = 0;
+int update_thread_id = 0;
 gboolean python_scripy_conpleted = FALSE;
 
 GFile *monitor_file;
@@ -155,12 +153,11 @@ GdkPixbuf *point_pixbuf = NULL;
 GtkWidget *debug_window;
 GtkWidget *debug_label;
 
-
-void handle_exception() {
+void handle_exception()
+{
     printf("发生异常\n");
     longjmp(exception_env, 1);
 }
-
 
 #ifdef _WIN32
 #define PATH_SEPARATOR "\\"
@@ -192,7 +189,6 @@ void handle_exception() {
 #define GOTO_HTM printf("system call\n")
 #endif
 
-
 #ifdef _WIN32
 #define CLIENT_SOCKET SOCKET
 #else
@@ -202,8 +198,8 @@ void handle_exception() {
 CLIENT_SOCKET global_clientSocket;
 
 #ifdef _WIN32
-void* socket_thread(void* arg) {
-
+void* socket_thread(void* arg)
+{
     global_clientSocket = INVALID_SOCKET;
 
     printf("Hello from the thread!\n");
@@ -215,14 +211,16 @@ void* socket_thread(void* arg) {
     char buffer[1024];
 
     // 初始化Winsock库
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+    {
         printf("Failed to initialize Winsock\n");
         return 1;
     }
 
     // 创建套接字
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket == INVALID_SOCKET) {
+    if (serverSocket == INVALID_SOCKET)
+    {
         printf("Failed to create socket: %d\n", WSAGetLastError());
         WSACleanup();
         return 1;
@@ -234,7 +232,8 @@ void* socket_thread(void* arg) {
     serverAddr.sin_addr.s_addr = INADDR_ANY; // 监听所有网络接口
 
     // 绑定套接字
-    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+    {
         printf("Bind failed: %d\n", WSAGetLastError());
         closesocket(serverSocket);
         WSACleanup();
@@ -242,7 +241,8 @@ void* socket_thread(void* arg) {
     }
 
     // 监听连接请求
-    if (listen(serverSocket, 5) == SOCKET_ERROR) {
+    if (listen(serverSocket, 5) == SOCKET_ERROR)
+    {
         printf("Listen failed: %d\n", WSAGetLastError());
         closesocket(serverSocket);
         WSACleanup();
@@ -255,7 +255,8 @@ void* socket_thread(void* arg) {
         // 等待客户端连接
         clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientAddrLen);
         global_clientSocket = clientSocket;
-        if (clientSocket == INVALID_SOCKET) {
+        if (clientSocket == INVALID_SOCKET)
+        {
             printf("Accept failed: %d\n", WSAGetLastError());
             closesocket(serverSocket);
             WSACleanup();
@@ -266,9 +267,11 @@ void* socket_thread(void* arg) {
 
         char* before_buffer = "";
         // 接收客户端消息
-        while (1) {
+        while (1)
+        {
             int bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
-            if (bytesRead <= 0) {
+            if (bytesRead <= 0)
+            {
                 printf("Connection closed by client\n");
                 break;
             }
@@ -295,7 +298,8 @@ void* socket_thread(void* arg) {
             processString(buffer);
 
             // 如果接收到"end"，关闭连接
-            if (strncmp(buffer, "end", 3) == 0) {
+            if (strncmp(buffer, "end", 3) == 0)
+            {
                 printf("Received 'end'. Closing connection.\n");
                 break;
             }
@@ -309,7 +313,8 @@ void* socket_thread(void* arg) {
     return 0;
 }
 
-void sendMessageToClient(const char* message) {
+void sendMessageToClient(const char* message)
+{
     if (global_clientSocket != INVALID_SOCKET)
     {
           int bytesSent = send(global_clientSocket, message, strlen(message), 0);
@@ -327,9 +332,10 @@ void sendMessageToClient(const char* message) {
         // 这里可以添加逻辑来处理没有连接的情况
     }
 }
-#else
-void* socket_thread(void* arg) {
 
+#else
+void* socket_thread(void* arg)
+{
     global_clientSocket = -1;
 
     printf("清除数组中的所有元素!\n");
@@ -339,7 +345,8 @@ void* socket_thread(void* arg) {
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     socket_server_id = serverSocket;
 
-    if (serverSocket == -1) {
+    if (serverSocket == -1)
+    {
         perror("Failed to create socket");
         exit(1);
     }
@@ -351,14 +358,16 @@ void* socket_thread(void* arg) {
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     // 绑定socket
-    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
+    {
         perror("Bind failed");
         close(serverSocket);
         exit(1);
     }
 
     // 监听连接
-    if (listen(serverSocket, 5) == -1) {
+    if (listen(serverSocket, 5) == -1)
+    {
         perror("Listen failed");
         close(serverSocket);
         exit(1);
@@ -366,7 +375,8 @@ void* socket_thread(void* arg) {
 
     printf("Server listening on port 12345...\n");
 
-    while(1) {
+    while(1)
+    {
         // 等待客户端连接
         int clientSocket;
         struct sockaddr_in clientAddr;
@@ -375,7 +385,8 @@ void* socket_thread(void* arg) {
         global_clientSocket = clientSocket;
 
         socket_client_id = clientSocket;
-        if (clientSocket == -1) {
+        if (clientSocket == -1)
+        {
             perror("Accept failed");
             close(serverSocket);
             exit(1);
@@ -385,7 +396,8 @@ void* socket_thread(void* arg) {
 
         char buffer[1024];
         int recvSize;
-        do {
+        do
+        {
             recvSize = recv(clientSocket, buffer, sizeof(buffer), 0);
             while(1)
             {
@@ -401,16 +413,15 @@ void* socket_thread(void* arg) {
 //                                   "Message sent too fast, please resend\n");
 //                            continue;
 //                        }
-
                         printf("Received: %s\n", buffer);
-                        if (strcmp(buffer, "end") != 0) {
-
+                        if (strcmp(buffer, "end") != 0)
+                        {
                             printf("json len = %d\n", strlen(buffer));
-                            if (strlen(buffer) <= 2) {
+                            if (strlen(buffer) <= 2)
+                            {
                                 printf("not json\n");
                                 continue;
                             }
-
                             processString(buffer);
                         }
                     }
@@ -426,25 +437,31 @@ void* socket_thread(void* arg) {
 
 }
 
-void sendMessageToClient(const char *message) {
-
-    if (global_clientSocket != -1) {
-        while (1) {
-            if (!socket_mess_lock) {
+void sendMessageToClient(const char *message)
+{
+    if (global_clientSocket != -1)
+    {
+        while (1)
+        {
+            if (!socket_mess_lock)
+            {
                 socket_mess_lock = TRUE;
                 int messageLength = strlen(message);
                 int bytesSent = send(global_clientSocket, message, messageLength, 0);
 
-                if (bytesSent == -1) {
+                if (bytesSent == -1)
+                {
                     perror("Send failed");
-                } else {
+                } else
+                {
                     printf("Sent message to client: %s\n", message);
                 }
                 socket_mess_lock = FALSE;
                 break; // After sending the message, exit the loop
             }
         }
-    } else {
+    } else
+    {
         printf("No client connected to send message to\n");
         // Logic to handle no connection can be added here
     }
@@ -455,33 +472,40 @@ void sendMessageToClient(const char *message) {
  * 处理json
  * @param json_str
  */
-void parse_json(const char *json_str) {
+void parse_json(const char *json_str)
+{
     cJSON *json = cJSON_Parse(json_str);
-    if (json == NULL) {
+    if (json == NULL)
+    {
         const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL) {
+        if (error_ptr != NULL)
+        {
             fprintf(stderr, "Error before: %s\n", error_ptr);
         }
         return;
     }
 
     const cJSON *id = cJSON_GetObjectItemCaseSensitive(json, "id");
-    if (cJSON_IsNumber(id)) {
+    if (cJSON_IsNumber(id))
+    {
         printf("[cJSON] id: %d\n", id->valueint);
     }
 
     const cJSON *result = cJSON_GetObjectItemCaseSensitive(json, "result");
-    if (cJSON_IsBool(result)) {
+    if (cJSON_IsBool(result))
+    {
         printf("[cJSON] result: %s\n", cJSON_IsTrue(result) ? "true" : "false");
     }
 
     const cJSON *message = cJSON_GetObjectItemCaseSensitive(json, "message");
-    if (cJSON_IsString(message) && (message->valuestring != NULL)) {
+    if (cJSON_IsString(message) && (message->valuestring != NULL))
+    {
         printf("[cJSON] message: \"%s\"\n", message->valuestring);
     }
 
     const cJSON *type = cJSON_GetObjectItemCaseSensitive(json, "type");
-    if (cJSON_IsString(type) && (type->valuestring != NULL)) {
+    if (cJSON_IsString(type) && (type->valuestring != NULL))
+    {
         printf("[cJSON] type: \"%s\"\n", type->valuestring);
     }
 
@@ -491,13 +515,16 @@ void parse_json(const char *json_str) {
 /**
  * 遍历全部json键值对
  */
-char* print_json_key_value_pairs(const char *json_str) {
+char* print_json_key_value_pairs(const char *json_str)
+{
     char* result = "";
     GString *ret = g_string_new("");
     cJSON *json = cJSON_Parse(json_str);
-    if (json == NULL) {
+    if (json == NULL)
+    {
         const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL) {
+        if (error_ptr != NULL)
+        {
             fprintf(stderr, "Error before: %s\n", error_ptr);
         }
         return "";
@@ -505,44 +532,50 @@ char* print_json_key_value_pairs(const char *json_str) {
 
     // 迭代 JSON 对象的每一个键值对
     cJSON *item = NULL;
-    cJSON_ArrayForEach(item, json) {
-        if (cJSON_IsString(item) && (item->valuestring != NULL)) {
+    cJSON_ArrayForEach(item, json)
+    {
+        if (cJSON_IsString(item) && (item->valuestring != NULL))
+        {
             printf("%s: %s\n", item->string, item->valuestring);
             g_string_append(ret, g_strdup_printf("%s: %s\n", item->string, item->valuestring));
-        } else if (cJSON_IsNumber(item)) {
+        } else if (cJSON_IsNumber(item))
+        {
             printf("%s: %d\n", item->string, item->valueint);
             g_string_append(ret, g_strdup_printf("%s: %d\n", item->string, item->valueint));
-        } else if (cJSON_IsBool(item)) {
+        } else if (cJSON_IsBool(item))
+        {
             printf("%s: %s\n", item->string, cJSON_IsTrue(item) ? "true" : "false");
             g_string_append(ret, g_strdup_printf("%s: %s\n", item->string, cJSON_IsTrue(item) ? "true" : "false"));
-        } else {
+        } else
+        {
             // 你可以添加更多的类型检查和打印逻辑
         }
 
     }
-
     cJSON_Delete(json); // 清理 cJSON 对象
     result = g_string_free(ret, FALSE);  // 获取结果字符串，并保留内存
     return result;
 }
 
-void clear_container(GtkWidget *widget, gpointer data) {
+void clear_container(GtkWidget *widget, gpointer data)
+{
     gtk_widget_destroy(widget);
 }
 
-void create_window_with_json(const char *json_str) {
-
+void create_window_with_json(const char *json_str)
+{
     // 首先清除 debug_window 中的所有内容
     gtk_container_foreach(GTK_CONTAINER(debug_window), clear_container, NULL);
-
 
     GtkWidget *grid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(grid), 5); // 设置行间距
 
     cJSON *json = cJSON_Parse(json_str);
-    if (json == NULL) {
+    if (json == NULL)
+    {
         const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL) {
+        if (error_ptr != NULL)
+        {
             fprintf(stderr, "Error before: %s\n", error_ptr);
         }
         return;
@@ -550,13 +583,17 @@ void create_window_with_json(const char *json_str) {
 
     int row = 0;
     cJSON *item = NULL;
-    cJSON_ArrayForEach(item, json) {
+    cJSON_ArrayForEach(item, json)
+    {
         GString *ret = g_string_new("");
-        if (cJSON_IsString(item) && (item->valuestring != NULL)) {
+        if (cJSON_IsString(item) && (item->valuestring != NULL))
+        {
             g_string_append_printf(ret, "%s: %s", item->string, item->valuestring);
-        } else if (cJSON_IsNumber(item)) {
+        } else if (cJSON_IsNumber(item))
+        {
             g_string_append_printf(ret, "%s: %d", item->string, item->valueint);
-        } else if (cJSON_IsBool(item)) {
+        } else if (cJSON_IsBool(item))
+        {
             g_string_append_printf(ret, "%s: %s", item->string, cJSON_IsTrue(item) ? "true" : "false");
         }
         GtkWidget *label = gtk_label_new(ret->str);
@@ -567,11 +604,11 @@ void create_window_with_json(const char *json_str) {
         gtk_widget_set_margin_end(label, 10);
         gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 1, 1);
 
-        if (item->next) {
+        if (item->next)
+        {
             GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
             gtk_grid_attach(GTK_GRID(grid), separator, 0, row++, 1, 1);
         }
-
         g_string_free(ret, TRUE);
     }
 
@@ -585,18 +622,25 @@ void create_window_with_json(const char *json_str) {
  * 处理接受字符串
  * @param str
  */
-void processString(char *str) {
+void processString(char *str)
+{
     char *start = str;
     char *end;
 
-    while (*start) {
+    while (*start)
+    {
         // 查找以"{"开头的子字符串
         start = strchr(start, '{');
-        if (!start) break; // 如果找不到"{"，退出循环
+        if (!start)
+        {
+            // 如果找不到"{"，退出循环
+            break;
+         }
 
         // 查找以"}"结尾的子字符串
         end = strchr(start, '}');
-        if (!end) {
+        if (!end)
+        {
             // 如果找不到"}"，跳过当前子字符串
             break;
         }
@@ -609,7 +653,6 @@ void processString(char *str) {
         printf("Valid Message : %s\n", receive); // 打印或执行其他操作
         //parse_json(receive);
         message_allocation(receive);
-
 
         // 移动开始位置，继续寻找下一个子字符串
         start = end + 1;
@@ -642,7 +685,6 @@ void properities_file_save()
         g_print("File saved fail!  \n");
     }
 }
-
 
 char* unicode_escape_to_utf8(const char* input)
 {
@@ -679,8 +721,10 @@ char* unicode_escape_to_utf8(const char* input)
     return output;
 }
 
-char* insertMyBeforeFlag(char *input, const char *dest) {
-    if (strstr(input, dest) == NULL) {
+char* insertMyBeforeFlag(char* input, const char* dest)
+{
+    if (strstr(input, dest) == NULL)
+    {
         return g_strdup(input);  // 如果没有找到dest，返回输入的副本
     }
 
@@ -691,14 +735,17 @@ char* insertMyBeforeFlag(char *input, const char *dest) {
     char *dest2 = g_strdup_printf("<%s",dest);
     char **content = g_strsplit(input, flag, -1);
 
-    for (int i = 0; content[i] != NULL; ++i) {
-        if (i > 0) {
+    for (int i = 0; content[i] != NULL; ++i)
+    {
+        if (i > 0)
+        {
             char **parms = g_strsplit(content[i], ">", 2);
             g_string_append(gstring, dest2);  // 在不是第一部分的内容前加上flag
             g_string_append(gstring, parms[0]);
             g_string_append(gstring, dest1);
             printf("%d\n",i);
-            if(g_strcmp0(parms[1],"") == 0){
+            if(g_strcmp0(parms[1],"") == 0)
+            {
                 printf("%s\n","null");
             }else
             {
@@ -711,7 +758,6 @@ char* insertMyBeforeFlag(char *input, const char *dest) {
             g_string_append(gstring, content[i]);  // 添加分割的部分
         }
     }
-
     result = g_string_free(gstring, FALSE);  // 获取结果字符串，并保留内存
     g_strfreev(content);  // 释放分割的字符串数组
 
@@ -731,7 +777,8 @@ void* system_thread(void* arg)
 
     RECEIVE_JSON receiveJson = {0,"white",""};
 
-    while (valid) {
+    while (valid)
+    {
         gtk_tree_model_get(model, &current_iter, COL_ROW_MODEL, &row_model, -1);
         GString *name = TEP_BASIC_COMPONENT(row_model)->action_name_renderer(row_model);
 
@@ -744,19 +791,17 @@ void* system_thread(void* arg)
     }
     printf("颜色初始化遍历 完成 \n");
 
-
     //调用python脚本
     printf("调用python函数 ---\n");
     gint page = gtk_notebook_get_current_page(GTK_NOTEBOOK(tep_geany->geany_data->main_widgets->notebook));
     python_info_path = g_array_index(file_array,File,page).path;
     gchar *code = tep_get_program_code(gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case)));
 
-
     call_python_script(python_script_path,"main",code,mode);
 
     printf("python函数执行完成 ---\n");
 //
-//    if(updete_thread_id == 0)
+//    if(update_thread_id == 0)
 //    {
 //        printf("creating thread3: %d\n");
 //        pthread_t thread3;
@@ -776,10 +821,13 @@ void* system_thread(void* arg)
  * @param str
  * @param flag
  */
-void removeSpacesAndNewlines(char *str , char flag) {
+void removeSpacesAndNewlines(char *str , char flag)
+{
     int i, j = 0;
-    for (i = 0; str[i]; i++) {
-        if ( str[i] != flag) {
+    for (i = 0; str[i]; i++)
+    {
+        if ( str[i] != flag)
+        {
             str[j++] = str[i];
         }
     }
@@ -791,24 +839,27 @@ void removeSpacesAndNewlines(char *str , char flag) {
  * @param str
  * @param sub
  */
-void removeSubstring(char *str, const char *sub) {
-    if (str == NULL || sub == NULL || *sub == '\0') {
+void removeSubstring(char *str, const char *sub)
+{
+    if (str == NULL || sub == NULL || *sub == '\0')
+    {
         return; // 处理空字符串或空子字符串
     }
 
     int len = strlen(sub);
     char *next;
 
-    while ((next = strstr(str, sub)) != NULL) {
+    while ((next = strstr(str, sub)) != NULL)
+    {
         memmove(next, next + len, strlen(next + len) + 1);
         str = next + 1; // 更新搜索起点以避免重复搜索相同位置
     }
 }
+
 /**
  * 创建带图片的按钮
  */
-GtkWidget*
-new_pixbuf_button(char* name,char* pix_path,int width,int height)
+GtkWidget* new_pixbuf_button(char* name,char* pix_path,int width,int height)
 {
     GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(pix_path, NULL);
     pixbuf = gdk_pixbuf_scale_simple(pixbuf,width, height, GDK_INTERP_BILINEAR);
@@ -824,30 +875,33 @@ new_pixbuf_button(char* name,char* pix_path,int width,int height)
 /**
  *输出内容到textbuffer，并滚动窗口到标记位置
  */
-void
-debug_textbuff_output(char* mess){
+void debug_textbuff_output(char* mess)
+{
     gtk_text_buffer_get_end_iter(debug_textbuffer,&debug_end);
     gtk_text_buffer_insert(debug_textbuffer,&debug_end,mess,-1);
     gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(debug_text), debug_mark, 0.0, TRUE, 0.0, 1.0);
 }
 
-void
-file_textbuff_output(char* mess){
+void file_textbuff_output(char* mess)
+{
     gtk_text_buffer_get_end_iter(file_textbuffer,&file_end);
     gtk_text_buffer_insert(file_textbuffer,&file_end,mess,-1);
     gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(file_text), file_mark, 0.0, TRUE, 0.0, 1.0);
 }
 
-gboolean isValidJSON(const char* jsonString) {
+gboolean isValidJSON(const char* jsonString)
+{
     // JSON格式的基本结构是一个对象，以大括号开始和结束
     // 所以可以检查字符串的第一个字符是否为'{'
-    if (jsonString[0] != '{') {
+    if (jsonString[0] != '{')
+    {
         return FALSE;
     }
 
     // 检查字符串的最后一个字符是否为'}'
     size_t len = strlen(jsonString);
-    if (jsonString[len - 1] != '}') {
+    if (jsonString[len - 1] != '}')
+    {
         return FALSE;
     }
 
@@ -855,14 +909,14 @@ gboolean isValidJSON(const char* jsonString) {
 }
 
 //回调函数，用于处理文件变化事件
-void
-file_changed(GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitorEvent event_type, gpointer user_data,int* pindex)
+void file_changed(GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitorEvent event_type,
+                  gpointer user_data,int* pindex)
 {
     printf("文件发现变化\n");
     // 检查事件类型是否为文件被创建或修改
     if (event_type == G_FILE_MONITOR_EVENT_CREATED || event_type == G_FILE_MONITOR_EVENT_CHANGED)
     {
-        printf("文件内容增加！\n");
+        printf("文件内容增加\n");
         // 读取文件内容
         gchar *contents = NULL;
         gsize length = 0;
@@ -874,10 +928,9 @@ file_changed(GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitor
         if (success)
         {
             printf("成功读取文件\n");
-
             char* mess;
-            while(contents_split[content_index] != NULL){
-
+            while(contents_split[content_index] != NULL)
+            {
                 mess = g_strdup_printf("%s\n", contents_split[content_index]);
                 mess = unicode_escape_to_utf8(mess);
                 file_textbuff_output(mess);
@@ -901,11 +954,9 @@ file_changed(GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitor
     }
 }
 
-
-
 //监听文件
-void
-create_file_monitor(int current_page_index){
+void create_file_monitor(int current_page_index)
+{
     char* file_path = g_array_index(file_array,File,current_page_index).path;
     // 创建文件监视器
     monitor_file = g_file_new_for_path(file_path);
@@ -917,8 +968,7 @@ create_file_monitor(int current_page_index){
     main_index++;
 }
 
-int
-create_info_file(int cur_page_index)
+int create_info_file(int cur_page_index)
 {
     // 获取当前时间的秒数
     time_t currentTime = time(NULL);
@@ -941,11 +991,13 @@ create_info_file(int cur_page_index)
 
     // 判断是否存在info文件夹
     struct stat st1;
-    if (stat(g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"info"), &st1) == -1) {
+    if (stat(g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"info"), &st1) == -1)
+    {
         // 如果不存在，则创建info文件夹
         MKDIR_INFO;
         printf("成功创建info文件夹\n");
-    } else {
+    } else
+    {
         printf("info文件夹已存在\n"
                "path = %s",g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"info"));
     }
@@ -953,7 +1005,8 @@ create_info_file(int cur_page_index)
     cur_file_path = g_strdup_printf("%s%s%s%s%s",current_pwd,PATH_SEPARATOR,"info",PATH_SEPARATOR,info_filename);
     // 在info文件夹下创建一个txt文件
     FILE *file = fopen(cur_file_path, "w");
-    if (file == NULL) {
+    if (file == NULL)
+    {
         printf("无法创建txt文件\n");
         return 1;
     }
@@ -963,7 +1016,8 @@ create_info_file(int cur_page_index)
     g_array_append_val(file_array,new_file);
 
     //创建文件监听
-    if (main_index == 1) {
+    if (main_index == 1)
+    {
         create_file_monitor(0);
     }
 
@@ -971,24 +1025,22 @@ create_info_file(int cur_page_index)
 
     // 判断是否存在xml文件夹
     struct stat st2;
-    if (stat(g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"xml"), &st2) == -1) {
+    if (stat(g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"xml"), &st2) == -1)
+    {
         // 如果不存在，则创建info文件夹
         MKDIR_XML;
         printf("成功创建xml文件夹\n"
                "path = %s\n",g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"xml"));
-    } else {
+    } else
+    {
         printf("xml文件夹已存在\n"
                "path = %s\n",g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"xml"));
     }
 
-
-
     python_info_path = cur_file_path;
-
 }
 
-int
-check_properities_file()
+int check_properities_file()
 {
     gchar* filename= g_strdup_printf("%s%s%s%s%s",current_pwd,PATH_SEPARATOR,"assets",PATH_SEPARATOR,"properities.txt") ;
 
@@ -1003,14 +1055,16 @@ check_properities_file()
     file = fopen(filename, "r");
 
     // 如果文件不存在
-    if (file == NULL) {
+    if (file == NULL)
+    {
         printf("File does not exist. Creating the file...\n");
 
         // 以写入方式打开文件
         file = fopen(filename, "w");
 
         // 写入内容到文件
-        if (file != NULL) {
+        if (file != NULL)
+        {
             fprintf(file, "%s", content);
             printf("Content written to output.txt: %s\n", content);
             fclose(file); // 关闭文件
@@ -1028,10 +1082,12 @@ check_properities_file()
             // 显示对话框
             gtk_widget_show_all(dialog);
             return 1;
-        } else {
+        } else
+        {
             printf("Error opening file for writing.\n");
         }
-    } else {
+    } else
+    {
         printf("File already exists.\n");
         fclose(file); // 关闭文件
     }
@@ -1079,7 +1135,8 @@ int path_init()
             import_api_path = path;
             path = g_strsplit(import_path[1],"=",-1)[1];
             printf("import_api_path_status = %s\n",path);
-            if(strcmp(path,"true") == 0){
+            if(strcmp(path,"true") == 0)
+            {
                 import_api_path_status = TRUE;
                 printf("update import status = true\n");
             }else
@@ -1114,7 +1171,8 @@ int path_init()
             path = g_strsplit(import_path[1],"=",-1)[1];
             printf("import_api_path_status = %s\n",path);
 
-            if(strcmp(path,"true") == 0){
+            if(strcmp(path,"true") == 0)
+            {
                 import_api_path_status = TRUE;
                 printf("update import status = true\n");
             }else
@@ -1142,14 +1200,14 @@ int path_init()
 
         if(default_open_file_path == NULL)
         {
-
             //设置文件默认地址
             default_open_file_path = g_strdup_printf("%s%s%s%s%s",current_pwd,PATH_SEPARATOR,"xml",PATH_SEPARATOR,"default_xml.txt");
             default_xml_is_vaild = FALSE;
             printf("无法find default txt文件\n");
             printf("default 设置为 %s\n",default_open_file_path);
             FILE *file3 = fopen(default_open_file_path, "w");
-            if (file3 == NULL) {
+            if (file3 == NULL)
+            {
                 printf("无法创建txt文件\n");
                 return 1;
             }
@@ -1162,7 +1220,8 @@ int path_init()
         {
 
             FILE *file2 = fopen(default_open_file_path, "r");
-            if (file2 == NULL) {
+            if (file2 == NULL)
+            {
                 //设置文件默认地址
                 default_open_file_path = g_strdup_printf("%s%s%s%s%s",current_pwd,PATH_SEPARATOR,"xml",PATH_SEPARATOR,"default_xml.txt");
 
@@ -1170,14 +1229,16 @@ int path_init()
                 printf("无法find default txt文件\n");
                 printf("default %s\n",default_open_file_path);
                 FILE *file3 = fopen(default_open_file_path, "w");
-                if (file3 == NULL) {
+                if (file3 == NULL)
+                {
                     printf("无法创建txt文件\n");
                     return 1;
                 }
                 printf("成功创建文件 %s\n",default_open_file_path);
                 properities_file_save();
                 fclose(file3);
-            }else{
+            }else
+            {
                 default_xml_is_vaild = TRUE;
                 fclose(file2);
             }
@@ -1189,18 +1250,14 @@ int path_init()
         debug_textbuff_output("error：读取默认配置文件失败！···\n");
         contents= g_strdup_printf("python_script_path=/home/chen/Download/script.py\n");
     }
-
-
-
 }
-
-
 
 // 检查文件类型是否为pyd
 gboolean is_dest_file(const gchar *filename,const gchar *file_type)
 {
     const gchar *extension = g_strrstr(filename, ".");
-    if (extension && g_ascii_strcasecmp(extension, file_type) == 0) {
+    if (extension && g_ascii_strcasecmp(extension, file_type) == 0)
+    {
         return TRUE;
     }
     return FALSE;
@@ -1219,25 +1276,24 @@ int show_message_dialog(const gchar *message)
     gint response = gtk_dialog_run(GTK_DIALOG(dialog));
 
     // 判断用户的响应
-    if (response == GTK_RESPONSE_OK) {
+    if (response == GTK_RESPONSE_OK)
+    {
         // 用户点击了“确定”按钮
         // 执行你的逻辑
-    } else if (response == GTK_RESPONSE_CANCEL) {
+    } else if (response == GTK_RESPONSE_CANCEL)
+    {
         // 用户点击了“取消”按钮
         // 可以选择执行其他操作或者不做任何操作
     }
-
     gtk_widget_destroy(dialog);
     return response;
 }
 
 /**
  * Generate drag sources (To Be Optimized)
- *
  * @return Generated drag source window component
  */
-GtkTreeModel *
-tep_fill_component_source_widget(void)
+GtkTreeModel* tep_fill_component_source_widget(void)
 {
     GtkTreeStore *store = gtk_tree_store_new(NUM_COM_COLS,
                                              G_TYPE_STRING,
@@ -1259,12 +1315,10 @@ tep_fill_component_source_widget(void)
     gtk_tree_store_set(store, &iter2, COL_COM_ACTION_NAME, "Data operations",
                        COL_DESCRIPTION, "", -1);
 
-
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Comment",
                        COL_DESCRIPTION, "Edit comments",
                        COL_COM_TYPE, TEP_TYPE_COMMENT, -1);
-
 
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Golbal",
@@ -1290,7 +1344,6 @@ tep_fill_component_source_widget(void)
     gtk_tree_store_set(store, &iter2, COL_COM_ACTION_NAME, "Flow control",
                        COL_DESCRIPTION, "", -1);
 
-
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Exit",
                        COL_DESCRIPTION, "End test (package/project)",
@@ -1300,7 +1353,6 @@ tep_fill_component_source_widget(void)
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "If-Then-Else",
                        COL_DESCRIPTION, "Conditional execution of test steps",
                        COL_COM_TYPE, TEP_TYPE_IF_ELSE, -1);
-
 
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Loop",
@@ -1317,18 +1369,15 @@ tep_fill_component_source_widget(void)
                        COL_DESCRIPTION, "结束全部循环",
                        COL_COM_TYPE, TEP_TYPE_BREAK,-1);
 
-
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "React-On",
                        COL_DESCRIPTION, "Conditional execution according to case",
                        COL_COM_TYPE, TEP_TYPE_REACT_ON,-1);
 
-
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Wait",
                        COL_DESCRIPTION, "Suspend execution for definite time",
                        COL_COM_TYPE, TEP_TYPE_WAIT,-1);
-
 
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Try_Catch",
@@ -1339,23 +1388,20 @@ tep_fill_component_source_widget(void)
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Switch",
                        COL_DESCRIPTION, "Execute different code blocks based on different conditional values, used for multi-branch conditional control.",
                        COL_COM_TYPE, TEP_TYPE_SWITCH,-1);
+
     gtk_tree_store_append(store, &iter3, &iter2);
     gtk_tree_store_set(store, &iter3, COL_COM_ACTION_NAME, "Case",
                        COL_DESCRIPTION, "Conditional execution according to case",
                        COL_COM_TYPE, TEP_TYPE_SWITCH_CASE,-1);
-
 
     return GTK_TREE_MODEL(store);
 }
 
 /**
  * Generate drag sources (To Be Optimized)
- *
  * @return Generated drag source window component
  */
-
-void
-tep_execute_widget()
+void tep_execute_widget()
 {
     GtkTreeIter iter1, iter2, iter3, iter4;
     GtkTreeStore *store = GTK_TREE_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(com_source)));
@@ -1461,16 +1507,13 @@ tep_execute_widget()
             }
         }
     }
-
 }
 
 /**
  * Generate drag destination
- *
  * @return Generated drag destination window component
  */
-GtkTreeModel *
-tep_fill_generate_case_widget(void)
+GtkTreeModel* tep_fill_generate_case_widget(void)
 {
     GtkTreeStore *store = gtk_tree_store_new(NUM_GEN_COLS,
                                              G_TYPE_STRING,
@@ -1482,32 +1525,25 @@ tep_fill_generate_case_widget(void)
     return GTK_TREE_MODEL(store);
 }
 
-
 /**
  * Get row model
- *
  * @param model Source tree model
  * @param iter Tree row's iter where we want to get the model from
- *
  * @return Row model's pointer
  */
-gpointer
-tep_tree_model_get_row_model(GtkTreeModel *model, GtkTreeIter *iter)
+gpointer tep_tree_model_get_row_model(GtkTreeModel *model, GtkTreeIter *iter)
 {
     GValue row_model = G_VALUE_INIT;
     gtk_tree_model_get_value(model, iter, COL_ROW_MODEL, &row_model);
     return g_value_get_pointer(&row_model);
 }
 
-
 /**
  * Clean a row after the deletion
- *
  * @param model Source tree model
  * @param iter Tree row's iter we deleted
  */
-void
-tep_tree_clean_row(GtkTreeModel *model, GtkTreeIter *iter)
+void tep_tree_clean_row(GtkTreeModel *model, GtkTreeIter *iter)
 {
     // Clean self
     gpointer row_model = tep_tree_model_get_row_model(model, iter);
@@ -1533,8 +1569,7 @@ tep_tree_clean_row(GtkTreeModel *model, GtkTreeIter *iter)
 /**
  * Tree iters shear
  */
-void
-iters_shear(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+void iters_shear(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
     GtkTreeView *tree_view = GTK_TREE_VIEW(gen_case);
 
@@ -1545,7 +1580,8 @@ iters_shear(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
     gpointer *row_model;
 
     model = gtk_tree_view_get_model(tree_view);
-    if(gtk_tree_selection_get_selected(selection, &model, &iter)){
+    if(gtk_tree_selection_get_selected(selection, &model, &iter))
+    {
         shear = TRUE ;
         copy = FALSE;
         my_iter = iter;
@@ -1553,7 +1589,8 @@ iters_shear(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
         GString *name = g_string_new("");
         name = TEP_BASIC_COMPONENT(my_row_model)->action_name_renderer(my_row_model);
         printf("shear iter %s\n",name);
-    }else{
+    }else
+    {
         printf(" not iter\n");
     }
 }
@@ -1561,8 +1598,7 @@ iters_shear(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 /**
  * html跳转
  */
-void
-goto_html(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+void goto_html(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
     GtkTreeView *tree_view = GTK_TREE_VIEW(com_source);
 
@@ -1573,7 +1609,8 @@ goto_html(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
     gpointer *row_model;
 
     model = gtk_tree_view_get_model(tree_view);
-    if(gtk_tree_selection_get_selected(selection, &model, &iter)){
+    if(gtk_tree_selection_get_selected(selection, &model, &iter))
+    {
         GType type;
         gtk_tree_model_get(model, &iter, COL_COM_TYPE, &type, -1);
         char* name;
@@ -1588,16 +1625,16 @@ goto_html(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
             GOTO_HTM;
         }
 
-    }else{
-        printf(" not iter\n");
+    }else
+    {
+        printf("not iter\n");
     }
 }
 
 /**
  * Tree iters copy
  */
-void
-iters_copy(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+void iters_copy(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
     GtkTreeView *tree_view = GTK_TREE_VIEW(gen_case);
 
@@ -1608,7 +1645,8 @@ iters_copy(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
     gpointer *row_model;
 
     model = gtk_tree_view_get_model(tree_view);
-    if(gtk_tree_selection_get_selected(selection, &model, &iter)){
+    if(gtk_tree_selection_get_selected(selection, &model, &iter))
+    {
         copy =TRUE;
         shear = FALSE;
         my_iter = iter;
@@ -1616,18 +1654,17 @@ iters_copy(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
         GString *name = g_string_new("");
         name = TEP_BASIC_COMPONENT(my_row_model)->action_name_renderer(my_row_model);
         printf("copy iter %s\n",name);
-    }else{
-        printf(" not iter\n");
+    }else
+    {
+        printf("not iter\n");
     }
 }
 
 /**
  * Tree iters paste
  */
-void
-iters_paste(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+void iters_paste(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
-
     GtkTreeView *tree_view = GTK_TREE_VIEW(gen_case);
 
     GtkTreeSelection *selection = gtk_tree_view_get_selection(tree_view);
@@ -1641,7 +1678,7 @@ iters_paste(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
     {
     }else
     {
-        printf(" paste iter pos not row\n");
+        printf("paste iter pos not row\n");
     }
 
 //        gtk_tree_model_get(model, &iter, COL_ROW_MODEL, &row_model, -1);
@@ -1653,7 +1690,8 @@ iters_paste(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
         GtkTreePath *path = NULL;
         path =  gtk_tree_model_get_path(model,&iter);
 
-        if (path != NULL) {
+        if (path != NULL)
+        {
             GtkTreeViewDropPosition pos = GTK_TREE_VIEW_DROP_INTO_OR_BEFORE;
             GType type = TEP_TYPE_BASIC_BLOCK;
             tep_gen_case_insert_new_row(gen_case,path,pos,type);
@@ -1687,14 +1725,11 @@ void iters_expand_all()
 
 /**
  * Remove a tree row
- *
  * @param menu_item Clicked menu item
  * @param user_data Passed user data
  */
-void
-tep_remove_row(GtkMenuItem *menu_item, gpointer user_data)
+void tep_remove_row(GtkMenuItem *menu_item, gpointer user_data)
 {
-
     GtkTreeView *view = GTK_TREE_VIEW(user_data);
     GtkTreeSelection *selection = gtk_tree_view_get_selection(view);
 
@@ -1718,20 +1753,17 @@ tep_remove_row(GtkMenuItem *menu_item, gpointer user_data)
         {
             tep_tree_clean_row(model, &iter);
             gtk_tree_store_remove(GTK_TREE_STORE(model), &iter);
-            debug_textbuff_output("删除成功！ \n");
+            debug_textbuff_output("删除成功！\n");
         }
 
         gtk_widget_destroy(dialog);
     }
 }
 
-
-
 /**
  * 清理页面所有节点
  */
-void
-clear_tree_nodes()
+void clear_tree_nodes()
 {
     GtkTreeModel *model;
     GtkTreeIter iter;
@@ -1750,24 +1782,19 @@ clear_tree_nodes()
         valid = gtk_tree_model_get_iter_first(model,&iter);
     }
 
-    debug_textbuff_output("清除成功！ \n");
-    printf("清除成功！ \n");
+    debug_textbuff_output("清除成功！\n");
+    printf("清除成功！\n");
 
 }
 
-
-
-
 /**
  * Parameter setting dialog
- *
  * @param menu_item Clicked menu item
  * @param user_data Passed user data
  */
-void
-tep_set_parameters(GtkMenuItem *menu_item, gpointer user_data)
+void tep_set_parameters(GtkMenuItem *menu_item, gpointer user_data)
 {
-    g_print(" enter public Widget \n");
+    g_print("enter public Widget\n");
     GtkTreeView *view = GTK_TREE_VIEW(gen_case);
     GtkTreeSelection *selection = gtk_tree_view_get_selection(view);
 
@@ -1775,10 +1802,10 @@ tep_set_parameters(GtkMenuItem *menu_item, gpointer user_data)
     GtkTreeIter iter;
 
     model = gtk_tree_view_get_model(view);
-    g_print(" gtk_tree_view_get_model  \n");
+    g_print("gtk_tree_view_get_model\n");
     if(gtk_tree_selection_get_selected(selection, &model, &iter))
     {
-        g_print(" construct Widget \n");
+        g_print("construct Widget\n");
 
         GtkWidget *dialog = gtk_dialog_new_with_buttons("Parameters setting",
                                                         GTK_WINDOW(tep_geany->geany_data->main_widgets->window),
@@ -1803,9 +1830,7 @@ tep_set_parameters(GtkMenuItem *menu_item, gpointer user_data)
             // 创建一个entry
             GtkWidget *entry = gtk_entry_new();
 
-
             gint res = gtk_dialog_run(GTK_DIALOG(dialog));
-
 
             if(res == GTK_RESPONSE_ACCEPT)
             {
@@ -1822,12 +1847,10 @@ tep_set_parameters(GtkMenuItem *menu_item, gpointer user_data)
 
 /**
  * Parameter setting dialog
- *
  * @param menu_item Clicked menu item
  * @param user_data Passed user data
  */
-void
-tep_drag_set_parameters(GtkTreeIter iter, gpointer user_data)
+void tep_drag_set_parameters(GtkTreeIter iter, gpointer user_data)
 {
     g_print(" enter darg Widget \n");
     GtkTreeView *view = GTK_TREE_VIEW(gen_case);
@@ -1873,40 +1896,36 @@ tep_drag_set_parameters(GtkTreeIter iter, gpointer user_data)
     gtk_widget_destroy(dialog);
 }
 
-
-
-
 /**
  * 获取拖动组建名称
  */
-void
-set_elements_drag_component_name(){
-
+void set_elements_drag_component_name()
+{
     //printf("获取drag_component_name = %s \n",drag_component_name);
 
     for(int i =0;i<num_functions;i++)
     {
-        if(strcmp(functions[i].name,drag_component_name)==0){
+        if(strcmp(functions[i].name,drag_component_name)==0)
+        {
             set_function((FunctionInfo*)&functions[i]);
             break;
-        }else{
-            if(i == num_functions-1){
+        }else
+        {
+            if(i == num_functions-1)
+            {
                 set_function(&functions[i]);
             }
         }
     }
 }
 
-
 /**
  * Insert a basic block for special components
- *
  * @param model Source tree model
  * @param iter Parent row's iter we want to insert into
  * @param nick_name Basic block's nickname
  */
-GtkTreeIter
-tep_insert_basic_block(GtkTreeStore *model, GtkTreeIter *iter, gchar *nick_name)
+GtkTreeIter tep_insert_basic_block(GtkTreeStore *model, GtkTreeIter *iter, gchar *nick_name)
 {
     GtkTreeIter row_iter;
     gpointer row_model = tep_get_row_model_by_type(TEP_TYPE_BASIC_BLOCK);
@@ -1920,8 +1939,7 @@ tep_insert_basic_block(GtkTreeStore *model, GtkTreeIter *iter, gchar *nick_name)
 }
 
 
-int
-ergodic_tree_node(GtkWidget *widget,GtkTreeIter iter,GtkTreeIter par)
+int ergodic_tree_node(GtkWidget *widget,GtkTreeIter iter,GtkTreeIter par)
 {
     z++;
     printf("enter ergodic_tree_node  \n");
@@ -1952,26 +1970,24 @@ ergodic_tree_node(GtkWidget *widget,GtkTreeIter iter,GtkTreeIter par)
 
         } while(gtk_tree_model_iter_next(model, &children));
     }
-
     z--;
-    if(z == 0){
+    if(z == 0)
+    {
         gtk_tree_store_remove(GTK_TREE_STORE(model), &par);
     }
 }
 
 /**
  * Insert a new row after Drag and Drop operation
- *
  * @param widget Destination tree widget
  * @param path Tree path we dropped
  * @param pos Position we dropped
  * @param type Row model's type
  */
-int
-tep_insert_new_row(GtkWidget *widget,
-                   GtkTreePath *path,
-                   GtkTreeViewDropPosition pos,
-                   GType type)
+int tep_insert_new_row(GtkWidget *widget,
+                       GtkTreePath *path,
+                       GtkTreeViewDropPosition pos,
+                       GType type)
 {
     GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
     GtkTreeIter iter, cur, parent;
@@ -1985,13 +2001,14 @@ tep_insert_new_row(GtkWidget *widget,
         printf("---------------------------start get tree model\n");
         gpointer p1;
         gtk_tree_model_get(model, &cur, COL_ROW_MODEL, &p1, -1);
-        printf("---------------------------start get  model type\n");
+        printf("---------------------------start get model type\n");
         GType type = G_TYPE_FROM_INSTANCE(p1);
         GString *typename = g_string_new("");
         typename = g_string_new(g_type_name(type));
         printf("---------------------------parent type = %s\n",typename->str);
 
-        for (guint i = 0; i < not_drag_dest->len; i++) {
+        for (guint i = 0; i < not_drag_dest->len; i++)
+        {
             GType t = g_array_index(not_drag_dest, GType, i);
             if(type == t)
             {
@@ -2002,17 +2019,13 @@ tep_insert_new_row(GtkWidget *widget,
 
         if(gtk_tree_model_iter_parent(model, &parent, &cur)) // get parent node
         {
-
             par = &parent;
-
             gtk_tree_path_free(path);
         }
         else
         {
             par = NULL;
         }
-
-
 
         switch(pos)
         {
@@ -2039,7 +2052,6 @@ tep_insert_new_row(GtkWidget *widget,
 
     if(current_drag_windows == GEN_CASE_DRAG)
     {
-
         row_model = my_row_model;
         gtk_tree_store_set(GTK_TREE_STORE(model), &iter, COL_ROW_MODEL, row_model, -1);
 
@@ -2051,7 +2063,6 @@ tep_insert_new_row(GtkWidget *widget,
     gtk_tree_store_set(GTK_TREE_STORE(model), &iter, COL_ROW_MODEL, row_model, -1);
 
     tep_drag_set_parameters(iter,row_model);
-
 
     // handle special components
     if(type == TEP_TYPE_IF_ELSE)
@@ -2072,6 +2083,7 @@ tep_insert_new_row(GtkWidget *widget,
     }
 }
 
+
 gboolean determine_equal_node(GtkTreeIter iter1, GtkTreeIter iter2)
 {
     printf("z=%d\n",z);
@@ -2081,20 +2093,23 @@ gboolean determine_equal_node(GtkTreeIter iter1, GtkTreeIter iter2)
     gtk_tree_model_get(model, &iter2, COL_ROW_MODEL, &dest_model, -1);
 
     int id2 = TEP_BASIC_COMPONENT(dest_model)->classId;
-    if(z == 1) {
+    if(z == 1)
+    {
         int id1 = 0;
         gpointer drag_model;
         gtk_tree_model_get(model, &iter1, COL_ROW_MODEL, &drag_model, -1);
         id1 = TEP_BASIC_COMPONENT(drag_model)->classId;
-        if (id1 == id2) {
+        if (id1 == id2)
+        {
             printf("无法拖动\n");
             z=0;
             return TRUE;
         }
     }
     GtkTreeIter children;
-    if(gtk_tree_model_iter_children(model, &children, &iter1) ) {
-        printf("find child \n");
+    if(gtk_tree_model_iter_children(model, &children, &iter1) )
+    {
+        printf("find child\n");
         do {
             int id1 = 0;
             gpointer drag_model;
@@ -2102,12 +2117,14 @@ gboolean determine_equal_node(GtkTreeIter iter1, GtkTreeIter iter2)
             id1 = TEP_BASIC_COMPONENT(drag_model)->classId;
             printf("child %d\n",id1);
 
-            if(id1 == id2){
+            if(id1 == id2)
+            {
                 printf("无法拖动\n");
                 z=0;
                 return TRUE;
             }
-            if(determine_equal_node(children,iter2)){
+            if(determine_equal_node(children,iter2))
+            {
                 z=0;
                 return TRUE;
             }
@@ -2117,8 +2134,7 @@ gboolean determine_equal_node(GtkTreeIter iter1, GtkTreeIter iter2)
     return FALSE;
 }
 
-int
-tep_gen_case_insert_new_row(GtkWidget *widget,
+int tep_gen_case_insert_new_row(GtkWidget *widget,
                             GtkTreePath *path,
                             GtkTreeViewDropPosition pos,
                             GType type)
@@ -2140,11 +2156,12 @@ tep_gen_case_insert_new_row(GtkWidget *widget,
         GString *typename = g_string_new("");
         typename = g_string_new(g_type_name(type));
         printf("---------------------------parent type = %s\n",typename->str);
-        for (guint i = 0; i < not_drag_dest->len; i++) {
+        for (guint i = 0; i < not_drag_dest->len; i++)
+        {
             GType t = g_array_index(not_drag_dest, GType, i);
             if(type == t)
             {
-                printf("禁止插入类型 不能插入 ！",typename->str);
+                printf("禁止插入类型，不能插入！",typename->str);
                 pos = GTK_TREE_VIEW_DROP_AFTER;
                 break;
             }
@@ -2188,7 +2205,6 @@ tep_gen_case_insert_new_row(GtkWidget *widget,
         gtk_tree_store_append(GTK_TREE_STORE(model), &iter, NULL);
     }
 
-
     gpointer row_model ;
 
     row_model = my_row_model;
@@ -2198,11 +2214,9 @@ tep_gen_case_insert_new_row(GtkWidget *widget,
 
     //gtk_tree_view_expand_row(GTK_TREE_VIEW(gen_case),path,TRUE);
     return 1;
-
 }
 
-int
-copy_insert_new_row(GtkTreeModel *model,GtkTreeIter par,GtkTreeIter dest)
+int copy_insert_new_row(GtkTreeModel *model,GtkTreeIter par,GtkTreeIter dest)
 {
     GString *ret_str = g_string_new("");
 
@@ -2233,18 +2247,14 @@ copy_insert_new_row(GtkTreeModel *model,GtkTreeIter par,GtkTreeIter dest)
 
 }
 
-
-
 /**
  * Drag and drop operation handler
  */
-void
-tep_on_drag_data_get(GtkWidget *widget,
-                     GdkDragContext *context,
-                     GtkSelectionData *selection_data,
-                     guint info,
-                     guint time,
-                     gpointer data)
+void tep_on_drag_data_get(GtkWidget *widget,
+                          GdkDragContext *context,
+                          GtkSelectionData *selection_data,
+                          guint info,guint time,
+                          gpointer data)
 {
     current_drag_windows = COM_SOURCE_DRAG;
 
@@ -2290,20 +2300,12 @@ tep_on_drag_data_get(GtkWidget *widget,
 
 }
 
-
 /**
  * Drag and drop operation handler
  * */
-void
-tep_on_drag_data_received(GtkWidget *widget,
-                          GdkDragContext *context,
-                          gint x, gint y,
-                          GtkSelectionData *selection_data,
-                          guint info,
-                          guint time,
-                          gpointer data) {
-
-
+void tep_on_drag_data_received(GtkWidget *widget,GdkDragContext *context,gint x, gint y,
+                               GtkSelectionData *selection_data,guint info,guint time,gpointer data)
+{
     const char *rec_data = (const char *) gtk_selection_data_get_data(selection_data);
     GType type = g_type_from_name(rec_data);
     gint len = gtk_selection_data_get_length(selection_data);
@@ -2316,7 +2318,8 @@ tep_on_drag_data_received(GtkWidget *widget,
         printf("gen_case drag data\n");
     }
 
-    if (len != -1) {
+    if (len != -1)
+    {
         GtkTreePath *path;
         GtkTreeViewDropPosition pos;
 
@@ -2339,14 +2342,12 @@ tep_on_drag_data_received(GtkWidget *widget,
         g_array_remove_index_fast(code_array, page);
         //printf("%s page=%d\n", g_array_index(array,char*,page),page);
 
-
-
     }
-
 }
-//
-static void gen_case_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection_data, guint info, guint time, gpointer user_data) {
 
+static void gen_case_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection_data,
+                                   guint info, guint time, gpointer user_data)
+{
     current_drag_windows = GEN_CASE_DRAG;
 
     printf("gen case get data start! \n");
@@ -2380,29 +2381,24 @@ static void gen_case_drag_data_get(GtkWidget *widget, GdkDragContext *context, G
 
 }
 
-
 /**
  * Bind signal handler for drag and drop operations
  */
-void
-
-tep_set_drag_and_drop(void)
+void tep_set_drag_and_drop(void)
 {
     g_signal_connect(com_source, "drag-data-get", G_CALLBACK(tep_on_drag_data_get), NULL);
     g_signal_connect(gen_case, "drag-data-get", G_CALLBACK(gen_case_drag_data_get), NULL);
-
     g_signal_connect(gen_case, "drag-data-received", G_CALLBACK(tep_on_drag_data_received), NULL);
 }
 
 int class_num=0;
+
 /**
  * Generate objects by different types
- *
  * @param type Object's type
  * @return Pointer of generated object
  */
-gpointer
-tep_get_row_model_by_type(GType type)
+gpointer tep_get_row_model_by_type(GType type)
 {
     gpointer row_model = g_object_new(type, NULL);
 //    TEP_BASIC_COMPONENT(row_model)->classId = class_num++;
@@ -2410,19 +2406,14 @@ tep_get_row_model_by_type(GType type)
     return row_model;
 }
 
-
 /**
  * Generate drag source components' window widget
- *
  * @return Generated widget
  */
-GtkWidget *
-tep_create_component_source_widget(void)
+GtkWidget* tep_create_component_source_widget(void)
 {
-    GtkWidget *view = gtk_tree_view_new();
-
+    GtkWidget* view = gtk_tree_view_new();
     GtkCellRenderer *renderer;
-
     renderer = gtk_cell_renderer_text_new();
     gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(view),
                                                 -1, "Action / Name",
@@ -2439,17 +2430,13 @@ tep_create_component_source_widget(void)
 
     gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(view), TRUE);
 
-    GtkTargetEntry targets = {
-            "text/plain", 0, 0
-    };
+    GtkTargetEntry targets = {"text/plain", 0, 0};
 
     gtk_tree_view_enable_model_drag_source(GTK_TREE_VIEW(view),
                                            GDK_BUTTON1_MASK, &targets,
                                            1, GDK_ACTION_COPY);
 
     g_object_unref(model);
-
-
 
     GtkWidget *menu = gtk_menu_new();
     GtkWidget *menu_item_goto_html = gtk_menu_item_new_with_label("打开说明文档");
@@ -2463,18 +2450,14 @@ tep_create_component_source_widget(void)
     g_signal_connect(view, "button-press-event", G_CALLBACK(tep_on_right_click), menu);
     g_signal_connect(view, "row-activated", G_CALLBACK(tep_set_parameters), GTK_TREE_VIEW(gen_case) );
 
-
-
-
-
     return view;
 }
 
-int
-update_class_property(gpointer row_model , RECEIVE_JSON receiveJson)
+int update_class_property(gpointer row_model , RECEIVE_JSON receiveJson)
 {
     GString *color = g_string_new("");
-    if(g_strcmp0(receiveJson.result,"true")==0){
+    if(g_strcmp0(receiveJson.result,"true")==0)
+    {
         g_string_append(color,"light green");
     }else if(g_strcmp0(receiveJson.result,"false")==0)
     {
@@ -2491,22 +2474,24 @@ update_class_property(gpointer row_model , RECEIVE_JSON receiveJson)
 }
 
 
-int
-find_classId_equal_node(GtkTreeIter iter1,RECEIVE_JSON receiveJson)
+int find_classId_equal_node(GtkTreeIter iter1,RECEIVE_JSON receiveJson)
 {
     GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case));
 
     GtkTreeIter children;
-    if(gtk_tree_model_iter_children(model, &children, &iter1) ) {
+    if(gtk_tree_model_iter_children(model, &children, &iter1) )
+    {
         printf("find child \n");
-        do {
+        do
+        {
             int id1 = 0;
             gpointer row_model;
             gtk_tree_model_get(model, &children, COL_ROW_MODEL, &row_model, -1);
             id1 = TEP_BASIC_COMPONENT(row_model)->classId;
             printf("child %d\n",id1);
 
-            if(id1 == receiveJson.id){
+            if(id1 == receiveJson.id)
+            {
                 update_class_property(row_model,receiveJson);
                 set_message_node(id1);
                 break;
@@ -2516,15 +2501,16 @@ find_classId_equal_node(GtkTreeIter iter1,RECEIVE_JSON receiveJson)
     }
 }
 
-int
-find_chilren_node(GtkTreeIter iter1,RECEIVE_JSON receiveJson)
+int find_chilren_node(GtkTreeIter iter1,RECEIVE_JSON receiveJson)
 {
     GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case));
 
     GtkTreeIter children;
-    if(gtk_tree_model_iter_children(model, &children, &iter1) ) {
+    if(gtk_tree_model_iter_children(model, &children, &iter1) )
+    {
         printf("find child \n");
-        do {
+        do
+        {
             int id1 = 0;
             gpointer row_model;
             gtk_tree_model_get(model, &children, COL_ROW_MODEL, &row_model, -1);
@@ -2538,15 +2524,14 @@ find_chilren_node(GtkTreeIter iter1,RECEIVE_JSON receiveJson)
     }
 }
 
-
 int block_index = 1;
+
 /**
  * 节点颜色信息处理
  * @param receiveJson
  * @return
  */
-int
-block_type_handel(RECEIVE_JSON receiveJson)
+int block_type_handel(RECEIVE_JSON receiveJson)
 {
     int i = 0;
     int id = receiveJson.id;
@@ -2559,7 +2544,8 @@ block_type_handel(RECEIVE_JSON receiveJson)
         {
             RECEIVE_JSON mess = g_array_index(receive_json_array, RECEIVE_JSON , i);
             //printf("mess:\n%d,%s,%s\nend\n",mess.id,mess.result,mess.message);
-            if (mess.id == id){
+            if (mess.id == id)
+            {
                 printf("id相等\n");
                 if (g_strcmp0(mess.result,receiveJson.result) == 0)
                 {
@@ -2579,38 +2565,41 @@ block_type_handel(RECEIVE_JSON receiveJson)
                 }
                 break;
 
-            }else{
+            }else
+            {
                 printf("id不等于%d\n",mess.id);
                 continue;
             }
         }
-    }else{
+    }else
+    {
         printf("该节点未收到\n");
     }
-
 
     GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case));
     gpointer row_model;
     GtkTreeIter current_iter;
     gboolean valid = gtk_tree_model_get_iter_first(model, &current_iter);
 
+    printf("遍历开始\n");
 
-    printf("遍历开始 \n");
-
-    while (valid) {
+    while (valid)
+    {
         gtk_tree_model_get(model, &current_iter, COL_ROW_MODEL, &row_model, -1);
         GString *name = TEP_BASIC_COMPONENT(row_model)->action_name_renderer(row_model);
 
         int classId = TEP_BASIC_COMPONENT(row_model)->classId;
-        printf("%s %d \n", name->str, classId);
+        printf("%s %d\n", name->str, classId);
 
-        if (id == classId) {
+        if (id == classId)
+        {
             printf("id %d = classId = %d\n", id, classId);
             printf("start set color \n");
             update_class_property(row_model, receiveJson);
             set_message_node(id);
             break;
-        } else {
+        } else
+        {
             find_classId_equal_node(current_iter, receiveJson);
             valid = gtk_tree_model_iter_next(model, &current_iter);
         }
@@ -2627,20 +2616,17 @@ block_type_handel(RECEIVE_JSON receiveJson)
         printf("replace \n");
         g_array_index(receive_json_array,RECEIVE_JSON ,i) = receiveJson;
     }
-
     // 在 message_cell_func 函数中更新单元格信息后，调用 gtk_tree_view_columns_autosize() 刷新视图
     printf("刷新 %d \n",block_index++);
     gtk_tree_view_columns_autosize(GTK_TREE_VIEW(gen_case));
 }
 
-char*
-debug_type_handel(char* debug_mess)
+char* debug_type_handel(char* debug_mess)
 {
     printf("%s\n",debug_mess);
 }
 
-int
-message_allocation(char* color_json)
+int message_allocation(char* color_json)
 {
     printf("message_allocation -------- \n");
 
@@ -2685,9 +2671,6 @@ message_allocation(char* color_json)
 //
 //    cJSON_Delete(json);
 
-
-
-
     char* sid = strstr(json_content[0],":")+1;
     if(!sid)
     {
@@ -2697,7 +2680,8 @@ message_allocation(char* color_json)
     {
         removeSpacesAndNewlines(sid,' ');
 
-        if(strlen(sid) == 0){
+        if(strlen(sid) == 0)
+        {
             printf("sid =%s\nsid 为空\n",sid);
             return 1;
         }
@@ -2756,15 +2740,12 @@ message_allocation(char* color_json)
     }
 }
 
+
 /**
  * dubug 断点
  */
-void
-debug_cell_func(GtkTreeViewColumn *column,
-                      GtkCellRenderer *cell,
-                      GtkTreeModel *model,
-                      GtkTreeIter *iter,
-                      gpointer data)
+void debug_cell_func(GtkTreeViewColumn *column,GtkCellRenderer *cell,
+                     GtkTreeModel *model,GtkTreeIter *iter,gpointer data)
 {
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
@@ -2778,11 +2759,13 @@ debug_cell_func(GtkTreeViewColumn *column,
     }
 }
 
+
 /**
  * 注释按钮
  */
-void select_cell_func(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
-                      GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+void select_cell_func(GtkTreeViewColumn *column, GtkCellRenderer *renderer,GtkTreeModel *model,
+                      GtkTreeIter *iter, gpointer data)
+{
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
 
@@ -2796,6 +2779,7 @@ void select_cell_func(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
     // 这里可以根据需要设置其他属性
 }
 
+
 /**
  * Action / Name column renderer
  *
@@ -2805,22 +2789,17 @@ void select_cell_func(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
  * @param iter Tree row's iter we selected
  * @param data Not used
  */
-void
-action_name_cell_func(GtkTreeViewColumn *column,
-                      GtkCellRenderer *cell,
-                      GtkTreeModel *model,
-                      GtkTreeIter *iter,
-                      gpointer data)
+void action_name_cell_func(GtkTreeViewColumn *column,GtkCellRenderer *cell,GtkTreeModel *model,
+                           GtkTreeIter *iter,gpointer data)
 {
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
     GString *name = TEP_BASIC_COMPONENT(row_model)->action_name_renderer(row_model);
     GString *cell_color = TEP_BASIC_COMPONENT(row_model)->get_cell_color(row_model);
 
-
     g_object_set(cell, "text", name->str, NULL);
 
-    //        //g_object_set(cell, "background", "white", NULL);
+    //g_object_set(cell, "background", "white", NULL);
 
     if (g_strcmp0(TEP_BASIC_COMPONENT(row_model)->get_cell_color(row_model)->str,"")==0)
     {
@@ -2829,8 +2808,6 @@ action_name_cell_func(GtkTreeViewColumn *column,
     {
         g_object_set(cell, "background", TEP_BASIC_COMPONENT(row_model)->get_cell_color(row_model)->str, NULL);
     }
-
-
 }
 
 
@@ -2843,14 +2820,9 @@ action_name_cell_func(GtkTreeViewColumn *column,
  * @param iter Tree row's iter we selected
  * @param data Not used
  */
-void
-parameter_cell_func(GtkTreeViewColumn *column,
-                    GtkCellRenderer *cell,
-                    GtkTreeModel *model,
-                    GtkTreeIter *iter,
-                    gpointer data)
+void parameter_cell_func(GtkTreeViewColumn *column,GtkCellRenderer *cell,GtkTreeModel *model,
+                         GtkTreeIter *iter,gpointer data)
 {
-
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
     GString *par = TEP_BASIC_COMPONENT(row_model)->parameter_renderer(row_model);
@@ -2867,12 +2839,8 @@ parameter_cell_func(GtkTreeViewColumn *column,
  * @param iter Tree row's iter we selected
  * @param data Not used
  */
-void
-expectation_value_cell_func(GtkTreeViewColumn *column,
-                            GtkCellRenderer *cell,
-                            GtkTreeModel *model,
-                            GtkTreeIter *iter,
-                            gpointer data)
+void expectation_value_cell_func(GtkTreeViewColumn *column,GtkCellRenderer *cell,GtkTreeModel *model,
+                                 GtkTreeIter *iter,gpointer data)
 {
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
@@ -2890,20 +2858,14 @@ expectation_value_cell_func(GtkTreeViewColumn *column,
  * @param iter Tree row's iter we selected
  * @param data Not used
  */
-void
-comment_cell_func(GtkTreeViewColumn *column,
-                  GtkCellRenderer *cell,
-                  GtkTreeModel *model,
-                  GtkTreeIter *iter,
-                  gpointer data)
+void comment_cell_func(GtkTreeViewColumn *column,GtkCellRenderer *cell,GtkTreeModel *model,
+                       GtkTreeIter *iter,gpointer data)
 {
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
     GString *com = TEP_BASIC_COMPONENT(row_model)->comment_renderer(row_model);
     g_object_set(cell, "text", com->str, NULL);
 }
-
-
 
 /**
  * Message column renderer
@@ -2914,22 +2876,16 @@ comment_cell_func(GtkTreeViewColumn *column,
  * @param iter Tree row's iter we selected
  * @param data Not used
  */
-void
-message_cell_func(GtkTreeViewColumn *column,
-                  GtkCellRenderer *cell,
-                  GtkTreeModel *model,
-                  GtkTreeIter *iter,
-                  gpointer data)
+void message_cell_func(GtkTreeViewColumn *column,GtkCellRenderer *cell,GtkTreeModel *model,
+                       GtkTreeIter *iter,gpointer data)
 {
     gpointer row_model;
     gtk_tree_model_get(model, iter, COL_ROW_MODEL, &row_model, -1);
     GString *name = TEP_BASIC_COMPONENT(row_model)->action_name_renderer(row_model);
     GString *cell_color = TEP_BASIC_COMPONENT(row_model)->get_cell_color(row_model);
-
     g_object_set(cell, "text", TEP_BASIC_COMPONENT(row_model)->message->str, NULL);
 
 }
-
 
 /**
  * Handle right click menu in generated tree model
@@ -2940,10 +2896,11 @@ message_cell_func(GtkTreeViewColumn *column,
  *
  * @return Success
  */
-static gboolean
-tep_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+static gboolean tep_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
-    if (event->button == GDK_BUTTON_SECONDARY) { // Right-click
+    if (event->button == GDK_BUTTON_SECONDARY)
+    {
+        // Right-click
         GtkTreeView *tree_view = GTK_TREE_VIEW(widget);
         GtkWidget *menu = GTK_WIDGET(user_data);
 
@@ -2951,15 +2908,16 @@ tep_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
         GtkTreeViewColumn *column = NULL;
         gint cell_x, cell_y;
 
-        if (gtk_tree_view_get_path_at_pos(tree_view, event->x, event->y, &path, &column, &cell_x, &cell_y)) {
+        if (gtk_tree_view_get_path_at_pos(tree_view, event->x, event->y, &path, &column, &cell_x, &cell_y))
+        {
             // Check if the cursor is inside the allocated area of a row
             GtkTreeIter iter;
             GtkTreeModel *model = gtk_tree_view_get_model(tree_view);
             //gtk_widget_set_sensitive(menu_item_delete, FALSE);
-            if (gtk_tree_model_get_iter(model, &iter, path)) {
+            if (gtk_tree_model_get_iter(model, &iter, path))
+            {
                 // Show the context menu
-                gtk_menu_popup(GTK_MENU(menu), NULL, NULL,
-                               NULL, NULL, event->button, event->time);
+                gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL, event->button, event->time);
             }
 
             gtk_tree_path_free(path);
@@ -2968,8 +2926,7 @@ tep_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
         }else
         {
             printf(" not row\n");
-            gtk_menu_popup(GTK_MENU(menu), NULL, NULL,
-                           NULL, NULL, event->button, event->time);
+            gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL, event->button, event->time);
             // 获取 GtkTreeView 的选择对象
             GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(gen_case));
             // 取消选择所有行
@@ -2977,14 +2934,14 @@ tep_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
             gen_case_click_is_row = FALSE;
         }
     }
-
     return FALSE;
 }
 
-static gboolean
-file_textbuffer_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+static gboolean file_textbuffer_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
-    if (event->button == GDK_BUTTON_SECONDARY) { // Right-click
+    if (event->button == GDK_BUTTON_SECONDARY)
+    {
+        // Right-click
         GtkTextView *tree_view = GTK_TREE_VIEW(widget);
         GtkWidget *menu = GTK_WIDGET(user_data);
 
@@ -2995,8 +2952,10 @@ file_textbuffer_on_right_click(GtkWidget *widget, GdkEventButton *event, gpointe
     return FALSE;
 }
 
-static gboolean on_button_press_event(GtkWidget *widget, GdkEventButton *event, GeanyDocument *doc) {
-    if (event->button == GDK_BUTTON_SECONDARY) {
+static gboolean on_button_press_event(GtkWidget *widget, GdkEventButton *event, GeanyDocument *doc)
+{
+    if (event->button == GDK_BUTTON_SECONDARY)
+    {
         // 如果是右键点击，调用自定义的右键菜单处理函数
         file_textbuffer_on_right_click(widget, event, doc);
         return TRUE; // 阻止默认右键菜单的显示
@@ -3025,14 +2984,15 @@ void change_child( GtkTreeModel *model,GtkTreeIter iter,gboolean selected)
     printf("checked 遍历完成");
 }
 
-int on_checkbox_toggled(GtkCellRendererToggle *renderer, gchar *path, gpointer data) {
-
+int on_checkbox_toggled(GtkCellRendererToggle *renderer, gchar *path, gpointer data)
+{
     GtkTreeIter iter,child;
     GtkListStore *list_store = GTK_LIST_STORE(data);
 
     GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case) );
     gpointer row_model;
-    if (gtk_tree_model_get_iter_from_string(model, &iter, path)) {
+    if (gtk_tree_model_get_iter_from_string(model, &iter, path))
+    {
         gboolean checked;
         gtk_tree_model_get(model, &iter, COL_ROW_MODEL, &row_model, -1);
         printf("id = %d\n", TEP_BASIC_COMPONENT(row_model)->classId);
@@ -3061,9 +3021,8 @@ int on_checkbox_toggled(GtkCellRendererToggle *renderer, gchar *path, gpointer d
 }
 
 
-
-gboolean on_debug_activated(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
-
+gboolean on_debug_activated(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+{
     GtkTreeView *tree_view = GTK_TREE_VIEW(gen_case);
 
     GtkTreePath *path = NULL;
@@ -3103,17 +3062,21 @@ gboolean on_debug_activated(GtkWidget *widget, GdkEventButton *event, gpointer u
                 int class_id = TEP_BASIC_COMPONENT(row_model)->classId;
                 const char *mess = "";
                 //断点类型判断(add/del)
-                if (flag) {
+                if (flag)
+                {
                     mess = g_strdup_printf("{\"command\":\"break\",\"type\":\"del\",\"id\":%d}", class_id);
 
-                    for (int i = 0; i < debug_point->len; ++i) {
+                    for (int i = 0; i < debug_point->len; ++i)
+                    {
                         int point = g_array_index(debug_point, int, i);
-                        if (class_id == point) {
+                        if (class_id == point)
+                        {
                             g_array_remove_index(debug_point, i);
                             break;
                         }
                     }
-                } else {
+                } else
+                {
                     mess = g_strdup_printf("{\"command\":\"break\",\"type\":\"add\",\"id\":%d}", class_id);
                     g_array_append_val(debug_point, class_id);
                 }
@@ -3128,13 +3091,13 @@ gboolean on_debug_activated(GtkWidget *widget, GdkEventButton *event, gpointer u
     return FALSE;
 }
 
+
 /**
  * Generate drag destination components' window widget
  *
  * @return Generated widget
  */
-GtkWidget *
-tep_create_generate_case_widget(void)
+GtkWidget* tep_create_generate_case_widget(void)
 {
     GtkWidget *view = gtk_tree_view_new();
 
@@ -3236,7 +3199,6 @@ tep_create_generate_case_widget(void)
                                            1, GDK_ACTION_COPY);
     //gtk_tree_view_enable_model_drag_dest(GTK_TREE_VIEW(view), &targets,1, GDK_ACTION_COPY);
 
-
     g_object_unref(model);
 
     GtkWidget *menu = gtk_menu_new();
@@ -3244,8 +3206,6 @@ tep_create_generate_case_widget(void)
     GtkWidget *menu_item_clear = gtk_menu_item_new_with_label("清除全部节点");
     GtkWidget *menu_item_expand_all = gtk_menu_item_new_with_label("展开全部节点");
     GtkWidget *menu_item_para = gtk_menu_item_new_with_label("参数设置");
-
-
     GtkWidget *menu_item_shear = gtk_menu_item_new_with_label("剪切");
     GtkWidget *menu_item_copy = gtk_menu_item_new_with_label("复制");
     GtkWidget *menu_item_paste = gtk_menu_item_new_with_label("粘贴");
@@ -3253,12 +3213,10 @@ tep_create_generate_case_widget(void)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_shear);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_copy);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_paste);
-
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_delete);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_clear);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_expand_all);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_para);
-
 
     gtk_widget_show_all(menu);
 
@@ -3266,8 +3224,6 @@ tep_create_generate_case_widget(void)
     g_signal_connect(menu_item_copy, "activate", G_CALLBACK(iters_copy), view);
     g_signal_connect(menu_item_paste, "activate", G_CALLBACK(iters_paste), view);
     g_signal_connect(menu_item_expand_all, "activate", G_CALLBACK(iters_expand_all), view);
-
-
     g_signal_connect(menu_item_delete, "activate", G_CALLBACK(tep_remove_row), view);
     g_signal_connect(menu_item_clear, "activate", G_CALLBACK(clear_tree_nodes), view);
     g_signal_connect(menu_item_para, "activate", G_CALLBACK(tep_set_parameters), view);
@@ -3275,7 +3231,6 @@ tep_create_generate_case_widget(void)
     gtk_widget_add_events(view, GDK_BUTTON_PRESS_MASK);
     g_signal_connect(view, "button-press-event", G_CALLBACK(tep_on_right_click), menu);
     g_signal_connect(view, "row-activated", G_CALLBACK(tep_set_parameters), GTK_TREE_VIEW(gen_case) );
-
 
     return view;
 }
@@ -3288,8 +3243,7 @@ tep_create_generate_case_widget(void)
  *
  * @return Generated scroll window
  */
-GtkWidget *
-tep_get_new_scrolled_window(GtkWidget *child)
+GtkWidget* tep_get_new_scrolled_window(GtkWidget *child)
 {
     GtkWidget *win;
     win = gtk_scrolled_window_new(NULL, NULL);
@@ -3303,8 +3257,7 @@ tep_get_new_scrolled_window(GtkWidget *child)
 }
 
 
-void
-on_properities_entrys_changed(GtkEntry *entry, gpointer user_data)
+void on_properities_entrys_changed(GtkEntry *entry, gpointer user_data)
 {
     const gchar *text = gtk_entry_get_text(entry);
     g_value_set_string(user_data, text);
@@ -3312,20 +3265,22 @@ on_properities_entrys_changed(GtkEntry *entry, gpointer user_data)
 }
 
 // 回调函数，处理复选按钮的点击事件
-void properity_on_checkbox_toggled(GtkWidget *widget, gpointer data) {
+void properity_on_checkbox_toggled(GtkWidget *widget, gpointer data)
+{
     gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-    if (active) {
-
+    if (active)
+    {
         g_value_set_string(&value_import_api_status, "true");
         g_print("复选按钮被选中了！\n");
-    } else {
+    } else
+    {
         g_value_set_string(&value_import_api_status, "false");
         g_print("复选按钮被取消选中了。\n");
     }
 }
 
-void
-on_properities_button_clicked(GtkButton *button, GtkEntry *entry)
+
+void on_properities_button_clicked(GtkButton *button, GtkEntry *entry)
 {
     GtkFileChooserDialog *dialog;
     // 创建文件选择对话框
@@ -3343,7 +3298,8 @@ on_properities_button_clicked(GtkButton *button, GtkEntry *entry)
 
     gchar *filename;
     // 运行对话框并获取文件路径
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
+    {
         filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
 
         gtk_entry_set_text(GTK_ENTRY(entry), filename);
@@ -3354,8 +3310,7 @@ on_properities_button_clicked(GtkButton *button, GtkEntry *entry)
 
 }
 
-void
-on_properities_button_clicked2(GtkButton *button, GtkEntry *entry)
+void on_properities_button_clicked2(GtkButton *button, GtkEntry *entry)
 {
     GtkFileChooserDialog *dialog;
     // 创建文件选择对话框
@@ -3373,7 +3328,8 @@ on_properities_button_clicked2(GtkButton *button, GtkEntry *entry)
 
     gchar *filename;
     // 运行对话框并获取文件路径
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
+    {
         filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
 
         gtk_entry_set_text(GTK_ENTRY(entry), filename);
@@ -3386,9 +3342,8 @@ on_properities_button_clicked2(GtkButton *button, GtkEntry *entry)
 /**
  *设置配置文件内容
  */
-int
-on_peoperities_button_clicked(){
-
+int on_properities_button_clicked()
+{
     GtkTextBuffer *buffer;
     GtkTextView *textview;
     gchar *filename;
@@ -3475,11 +3430,6 @@ on_peoperities_button_clicked(){
     gtk_box_pack_start(GTK_BOX(import_api_path_box), entry3, FALSE, FALSE, 1);
     gtk_box_pack_end(GTK_BOX(import_api_path_box), button3, FALSE, FALSE, 5);
 
-
-
-
-
-
     gtk_widget_show_all(box);
 
     gint res = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -3512,7 +3462,8 @@ on_peoperities_button_clicked(){
                 tep_execute_widget();
             }
 
-        } else {
+        } else
+        {
             debug_textbuff_output("\n配置文件写入失败\n");
             g_print("Failed to save file.\n");
         }
@@ -3525,24 +3476,17 @@ on_peoperities_button_clicked(){
 /**
  *配置文件管理
  */
-void
-peoperities_btn_init(GeanyPlugin *plugin)
+void properities_btn_init(GeanyPlugin *plugin)
 {
-    peoperities_btn = gtk_menu_item_new_with_mnemonic("HQ配置设置");
-    gtk_widget_show(peoperities_btn);
-    gtk_container_add(GTK_CONTAINER(plugin->geany_data->main_widgets->tools_menu ), peoperities_btn);
-    g_signal_connect(peoperities_btn, "activate", G_CALLBACK(on_peoperities_button_clicked),NULL);
+    properities_btn = gtk_menu_item_new_with_mnemonic("HQ配置设置");
+    gtk_widget_show(properities_btn);
+    gtk_container_add(GTK_CONTAINER(plugin->geany_data->main_widgets->tools_menu ), properities_btn);
+    g_signal_connect(properities_btn, "activate", G_CALLBACK(on_properities_button_clicked),NULL);
 }
 
 
-
-
-
-static gboolean
-incoming_callback (GSocketService *service,
-                   GSocketConnection *connection,
-                   GObject *source_object,
-                   gpointer user_data)
+static gboolean incoming_callback (GSocketService *service,GSocketConnection *connection,
+                                   GObject *source_object,gpointer user_data)
 {
     printf("事件触发！\n");
     GInputStream *istream;
@@ -3558,16 +3502,17 @@ incoming_callback (GSocketService *service,
     return FALSE;
 }
 
+
 /**
  * 调用python函数处理脚本
  */
-
-int
-fill_xml_file(char* params){
+int fill_xml_file(char* params)
+{
     FILE *file = fopen(python_xml_path, "w");
 
     // 检查文件是否成功打开
-    if (file == NULL) {
+    if (file == NULL)
+    {
         printf("无法打开文件\n");
         return 1;
     }
@@ -3580,15 +3525,17 @@ fill_xml_file(char* params){
 
     printf("xml内容已成功写入到文件\n");
 }
-int
-call_python_script(char* script_path,char* functon_name,char* params,char* mode)
+
+
+int call_python_script(char* script_path,char* functon_name,char* params,char* mode)
 {
     fill_xml_file(params);
 
     char *system_title = g_strdup_printf("%s %s", python_system_interpreter, script_path);
 
 
-    if (system_title == NULL) {
+    if (system_title == NULL)
+    {
         fprintf(stderr, "Error: Failed to allocate memory for system_title.\n");
         return 1;
     }
@@ -3620,11 +3567,13 @@ call_python_script(char* script_path,char* functon_name,char* params,char* mode)
     printf("input\n%s\n",system_content);
 
     int system_result = system(system_content);
-    if (system_result == -1) {
+    if (system_result == -1)
+    {
         // 执行失败，输出错误信息
         printf("系统命令执行失败\n");
         return 1;
-    } else {
+    } else
+    {
         // 执行成功，输出命令的退出状态码
         printf("系统命令执行成功，退出状态码：%d\n", system_result);
     }
@@ -3634,14 +3583,14 @@ call_python_script(char* script_path,char* functon_name,char* params,char* mode)
     g_free(system_parms);
 }
 
+
 /**
  * 调用python脚本
  */
-char*
-import_call_python_script(char* script_path,char* functon_name,char* params)
+char* import_call_python_script(char* script_path,char* functon_name,char* params)
 {
     char *python_interpreter= "/usr/bin/python3";
-    char *output_file = g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"output.txt")  ;
+    char *output_file = g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"output.txt");
     char *system_content = g_strdup_printf("%s %s \"%s\" \"%s\"",
                                            python_system_interpreter,
                                            script_path,
@@ -3649,7 +3598,6 @@ import_call_python_script(char* script_path,char* functon_name,char* params)
                                            output_file);
     printf("system_content = '%s'\n",system_content);
     system(system_content);
-
 
     FILE *file;
     char line[512]; // 用于存储每行的内容
@@ -3659,7 +3607,8 @@ import_call_python_script(char* script_path,char* functon_name,char* params)
     printf("open file path = %s\n",output_file);
     // 打开文件
     file = fopen(output_file, "r");
-    if (file == NULL) {
+    if (file == NULL)
+    {
         fprintf(stderr, "Error opening file.\n");
     }
 
@@ -3675,10 +3624,9 @@ import_call_python_script(char* script_path,char* functon_name,char* params)
     functions = (FunctionInfo*)malloc(list_len * sizeof(FunctionInfo));
     char *index;
 
-
-
     // 逐行读取文件内容并打印出来
-    while (fgets(line, sizeof(line), file) != NULL) {
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
         printf("%d Line: %s  len = %d", num, line, strlen(line));
         if(line[strlen(line)-2] != ']')
         {
@@ -3687,8 +3635,10 @@ import_call_python_script(char* script_path,char* functon_name,char* params)
         char* str_item = line;
         //清除字符串中的 ' \' '&" "
         int x = 0;
-        for (int y = 0; y < strlen(str_item); y++) {
-            if (str_item[y] != '\'' && str_item[y] != ' ') {
+        for (int y = 0; y < strlen(str_item); y++)
+        {
+            if (str_item[y] != '\'' && str_item[y] != ' ')
+            {
                 str_item[x] = str_item[y];
                 x++;
             }
@@ -3727,7 +3677,8 @@ import_call_python_script(char* script_path,char* functon_name,char* params)
 }
 
 // 回调函数，用于更新时间
-static gboolean update_time(GtkLabel *label) {
+static gboolean update_time(GtkLabel *label)
+{
     time_t now = time(NULL);
     struct tm *tm_now = localtime(&now);
     char buf[64];
@@ -3737,10 +3688,12 @@ static gboolean update_time(GtkLabel *label) {
 }
 
 // 弹出窗口的 `delete-event` 事件处理函数
-gboolean popup_window_delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
+gboolean popup_window_delete_event(GtkWidget *widget, GdkEvent *event, gpointer data)
+{
     gtk_widget_hide_on_delete(widget);
     return TRUE; // 阻止进一步的 `destroy` 事件处理
 }
+
 
 
 /**
@@ -3789,12 +3742,11 @@ int on_XML_run_button_clicked(GtkWidget *button, gpointer data)
 
     pthread_t thread2;
     int result2 = pthread_create(&thread2, NULL, system_thread, (void*)mode);
-    if (result2 != 0) {
+    if (result2 != 0)
+    {
         printf("Error creating thread2: %d\n", result2);
         return 1;
     }
-
-
 
     if(!debug_windows_state)
     {
@@ -3841,33 +3793,38 @@ int on_XML_run_button_clicked(GtkWidget *button, gpointer data)
 //        gtk_widget_show_all(debug_window);
     }
 
-
-
 }
+
 
 /**
  * Debug_run按钮点击事件的回调函数
  */
-int on_debug_button_clicked(GtkWidget *button, gpointer data) {
+int on_debug_button_clicked(GtkWidget *button, gpointer data)
+{
     printf("on_debug_button_clicked\n");
 }
+
 
 /**
  * Debug_step_run按钮点击事件的回调函数
  */
-int on_debug_step_button_clicked(GtkWidget *button, gpointer data) {
+int on_debug_step_button_clicked(GtkWidget *button, gpointer data)
+{
     printf("debug_step\n");
     const char* mess = "{\"command\":\"next\"}";
     sendMessageToClient(mess);
 }
 
+
 /**
  * Debug_step_run按钮点击事件的回调函数
  */
-int on_debug_execute_button_clicked(GtkWidget *button, gpointer data) {
+int on_debug_execute_button_clicked(GtkWidget *button, gpointer data)
+{
     printf("debug_execute\n");
     sendMessageToClient("{\"command\":\"go\"}");
 }
+
 
 /**
  * import_file按钮点击事件的回调函数
@@ -3910,8 +3867,8 @@ int on_import_file_button_clicked(GtkWidget *button, gpointer data)
 
 }
 
-void
-export_btn_init(GeanyPlugin *plugin)
+
+void export_btn_init(GeanyPlugin *plugin)
 {
     export_btn = gtk_menu_item_new_with_mnemonic("HQ另存为");
     gtk_widget_show(export_btn);
@@ -3920,8 +3877,8 @@ export_btn_init(GeanyPlugin *plugin)
                      gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case)));
 }
 
-void
-open_btn_init(GeanyPlugin *plugin)
+
+void open_btn_init(GeanyPlugin *plugin)
 {
     open_btn = gtk_menu_item_new_with_mnemonic("HQ打开文件");
     gtk_widget_show(open_btn);
@@ -3930,8 +3887,8 @@ open_btn_init(GeanyPlugin *plugin)
                      gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case)));
 }
 
-void
-save_btn_init(GeanyPlugin *plugin)
+
+void save_btn_init(GeanyPlugin *plugin)
 {
     save_btn = gtk_menu_item_new_with_mnemonic("HQ保存文件");
     gtk_widget_show(save_btn);
@@ -3943,10 +3900,9 @@ save_btn_init(GeanyPlugin *plugin)
 /**
  *运行功能
  */
-void
-run_btn_init(GeanyPlugin *plugin)
+void run_btn_init(GeanyPlugin *plugin)
 {
-//    //创建工具栏button
+    //创建工具栏button
     const gchar *imageFileName = "run.png";
     gchar *imageFilePath = g_build_filename("..", "assets", imageFileName, NULL);
 
@@ -3970,10 +3926,9 @@ run_btn_init(GeanyPlugin *plugin)
 /**
  *debug调试功能
  */
-void
-debug_btn_init(GeanyPlugin *plugin)
+void debug_btn_init(GeanyPlugin *plugin)
 {
-//    //创建工具栏button
+    //创建工具栏button
     const gchar *imageFileName = "debug.png";
     gchar *imageFilePath = g_build_filename("..", "assets", imageFileName, NULL);
 
@@ -3998,10 +3953,9 @@ debug_btn_init(GeanyPlugin *plugin)
 /**
  *step through 调试功能
  */
-void
-debug_step_btn_init(GeanyPlugin *plugin)
+void debug_step_btn_init(GeanyPlugin *plugin)
 {
-//    //创建工具栏button
+    //创建工具栏button
     const gchar *imageFileName = "debug-step-out.png";
     gchar *imageFilePath = g_build_filename("..", "assets", imageFileName, NULL);
 
@@ -4021,14 +3975,12 @@ debug_step_btn_init(GeanyPlugin *plugin)
 }
 
 
-
 /**
  *debug execute 调试功能
  */
-void
-debug_execute_btn_init(GeanyPlugin *plugin)
+void debug_execute_btn_init(GeanyPlugin *plugin)
 {
-//    //创建工具栏button
+    //创建工具栏button
     const gchar *imageFileName = "execute.png";
     gchar *imageFilePath = g_build_filename("..", "assets", imageFileName, NULL);
 
@@ -4051,8 +4003,7 @@ debug_execute_btn_init(GeanyPlugin *plugin)
 /**
  *导入文件功能
  */
-void
-import_bt_init(GeanyPlugin *plugin)
+void import_bt_init(GeanyPlugin *plugin)
 {
     import_btn = gtk_menu_item_new_with_mnemonic("HQ函数导入");
     gtk_widget_show(import_btn);
@@ -4060,13 +4011,18 @@ import_bt_init(GeanyPlugin *plugin)
     g_signal_connect(import_btn, "activate", G_CALLBACK(on_import_file_button_clicked),NULL);
 }
 
-gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, GtkWidget *menu) {
-    if (event->button == 3) { // 右键菜单触发事件
+
+gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, GtkWidget *menu)
+{
+    if (event->button == 3)
+    {
+        // 右键菜单触发事件
         gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
         return TRUE;
     }
     return FALSE;
 }
+
 
 void clear_text()
 {
@@ -4074,22 +4030,21 @@ void clear_text()
     gtk_text_buffer_set_text(file_textbuffer, "", -1);
 }
 
+
 /**
  *在状态栏中打印信息
  */
-void
-debug_statusbar()
+void debug_statusbar()
 {
-
     para_set = tep_get_new_scrolled_window(NULL);
     debug_text = gtk_text_view_new();
     debug_textbuffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(debug_text));
     gtk_container_add(GTK_CONTAINER(para_set), debug_text);
-    /*获取文本缓冲区的起始地址和结束地址*/
+    //获取文本缓冲区的起始地址和结束地址
     gtk_text_buffer_get_bounds(debug_textbuffer,&debug_start,&debug_end);
-    /*插入内容*/
+    //插入内容
     gtk_text_buffer_get_end_iter(debug_textbuffer,&debug_end);
-//    gtk_text_buffer_insert(debug_textbuffer,&debug_end,"author：华泉信息科技有限公司 \n"
+//  gtk_text_buffer_insert(debug_textbuffer,&debug_end,"author：华泉信息科技有限公司 \n"
 //                                                       "version:1.0\n"
 //                                                       "--- --- --- --- --- update date : 2023/9/27 --- --- --- --- \n",-1);
 
@@ -4106,16 +4061,16 @@ debug_statusbar()
     gtk_widget_show_all(para_set);
 }
 
-void
-file_statusbar()
+
+void file_statusbar()
 {
     para2_set = tep_get_new_scrolled_window(NULL);
     file_text = gtk_text_view_new();
     file_textbuffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(file_text));
     gtk_container_add(GTK_CONTAINER(para2_set), file_text);
-    /*获取文本缓冲区的起始地址和结束地址*/
+    //获取文本缓冲区的起始地址和结束地址
     gtk_text_buffer_get_bounds(file_textbuffer,&file_start,&file_end);
-    /*插入内容*/
+    //插入内容
     gtk_text_buffer_get_end_iter(file_textbuffer,&file_end);
     gtk_text_buffer_insert(file_textbuffer,&file_end,"状态栏初始化完成!\n", -1);
     // 设置GtkTextView为不可编辑状态
@@ -4130,8 +4085,6 @@ file_statusbar()
     gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(file_text), file_mark, 0.0, TRUE, 0.0, 1.0);
     gtk_widget_show_all(para2_set);
 
-
-
     GtkWidget *menu = gtk_menu_new();
     GtkWidget *menu_item_clear = gtk_menu_item_new_with_label("清除");
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item_clear);
@@ -4142,11 +4095,12 @@ file_statusbar()
 
 }
 
+
 /**
  * page_clicked
  */
-void
-page_clicked(GtkWidget *widget, gpointer data){
+void page_clicked(GtkWidget *widget, gpointer data)
+{
     // 获取当前选中的页码
     gint page = gtk_notebook_get_current_page(GTK_NOTEBOOK(tep_geany->geany_data->main_widgets->notebook));
     printf("delete page = %d\n",page);
@@ -4156,11 +4110,11 @@ page_clicked(GtkWidget *widget, gpointer data){
 
 }
 
+
 /**
  * 创建一个test case标签页
  */
-GtkWidget
-new_test_case_page()
+GtkWidget new_test_case_page()
 {
     gen_case=tep_create_generate_case_widget();
 
@@ -4191,11 +4145,11 @@ new_test_case_page()
 }
 
 
+
 /**
  * 增加页面
  */
-void
-toolbar_add_case_btn_init()
+void toolbar_add_case_btn_init()
 {
     toolbar_add_case_btn = new_pixbuf_button("add case", g_strdup_printf("%s%s%s%s%s",current_pwd,PATH_SEPARATOR,"assets",PATH_SEPARATOR,"add_case.png"),25,25);
     gtk_toolbar_insert(tep_geany->geany_data->main_widgets->toolbar, GTK_TOOL_ITEM(toolbar_add_case_btn),0);
@@ -4203,8 +4157,7 @@ toolbar_add_case_btn_init()
 }
 
 
-int
-all_button_init()
+int all_button_init()
 {
     //菜单栏
     printf("插入save按钮\n");
@@ -4213,8 +4166,8 @@ all_button_init()
     open_btn_init(tep_geany);
     printf("插入export按钮\n");
     export_btn_init(tep_geany);
-    printf("插入peoperities按钮\n");
-    peoperities_btn_init(tep_geany);
+    printf("插入properities按钮\n");
+    properities_btn_init(tep_geany);
     printf("import按钮\n");
     import_bt_init(tep_geany);
 
@@ -4249,10 +4202,9 @@ all_button_init()
 
 }
 
-void
-variable_init()
-{
 
+void variable_init()
+{
     code_array = g_array_new(FALSE,TRUE,sizeof(char*));
     thread_array = g_array_new(FALSE,FALSE,sizeof(pthread_t));
     file_array = g_array_new(FALSE,FALSE,sizeof(File));
@@ -4289,11 +4241,13 @@ variable_init()
     g_value_init(&value_import_api_status, G_TYPE_STRING);
 
     char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+    if (getcwd(cwd, sizeof(cwd)) != NULL)
+    {
         printf("当前工作目录：%s\n", cwd);
         current_pwd = g_strdup_printf("%s%slib%sgeany",cwd,PATH_SEPARATOR,PATH_SEPARATOR);
         printf("current_pwd：%s\n", current_pwd);
-    } else {
+    } else
+    {
         printf("无法获取当前工作目录\n");
     }
 
@@ -4303,7 +4257,8 @@ variable_init()
     current_pwd = g_strdup_printf("%s%s%s",current_pwd,PATH_SEPARATOR,"testcase-plugin");
     // 判断是否存在Test plugin文件夹
     struct stat st2;
-    if (stat(current_pwd, &st2) == -1) {
+    if (stat(current_pwd, &st2) == -1)
+    {
         // 如果不存在，则创建info文件夹
         if (PATH_SEPARATOR == "/")
         {
@@ -4312,16 +4267,16 @@ variable_init()
         {
             MKDIR_TEST_PLUGIN
         }
-
         printf("成功创建Test_plugin文件夹\n"
                "path = %s\n",current_pwd);
-    } else {
+    } else
+    {
         printf("xml文件夹已存在\n"
                "path = %s\n",current_pwd);
     }
 
-
 /**-------------------------------------------------init function_node_name------------------------------------------------------------------**/
+
     function_node_name = g_array_new(FALSE, FALSE, sizeof(gchar*)); // 指定元素的大小
     char* function_name = "comment";
     g_array_append_val(function_node_name,function_name);
@@ -4378,6 +4333,7 @@ variable_init()
     debug_windows_state = FALSE;
 }
 
+
 /**
  * Socket init
  */
@@ -4388,11 +4344,14 @@ int socket_init()
     pthread_t thread1;
     CLIENT_SOCKET;
     int result1 = pthread_create(&thread1, NULL, socket_thread, NULL);
-    if (result1 != 0) {
+    if (result1 != 0)
+    {
         printf("Error creating thread1: %d\n", result1);
         return 1;
     }
 }
+
+
 
 /**
  * import api init
@@ -4418,6 +4377,7 @@ int import_api_init()
 
 
 }
+
 
 
 /**
@@ -4532,11 +4492,11 @@ tep_plugin_init(GeanyPlugin *plugin, gpointer pdata)
 }
 
 
+
 /**
  * Geany plugin entry: clean up func
  * */
-void
-tep_plugin_cleanup(GeanyPlugin *plugin, gpointer pdata)
+void tep_plugin_cleanup(GeanyPlugin *plugin, gpointer pdata)
 {
     g_print("Cleaning up...\n");
 
@@ -4565,7 +4525,6 @@ tep_plugin_cleanup(GeanyPlugin *plugin, gpointer pdata)
     g_array_free(function_node_name,TRUE);
     g_array_free(debug_point,TRUE);
 
-
     gtk_widget_destroy(com_source);
     gtk_widget_destroy(gen_case);
     gtk_widget_destroy(para_set);
@@ -4576,7 +4535,7 @@ tep_plugin_cleanup(GeanyPlugin *plugin, gpointer pdata)
     gtk_widget_destroy(toolbar_run_btn);
     gtk_widget_destroy(toolbar_add_case_btn);
     gtk_widget_destroy(import_btn);
-    gtk_widget_destroy(peoperities_btn);
+    gtk_widget_destroy(properities_btn);
 
     gtk_notebook_remove_page(GTK_NOTEBOOK(tep_geany->geany_data->main_widgets->sidebar_notebook),
                              com_source_index);
@@ -4590,14 +4549,14 @@ tep_plugin_cleanup(GeanyPlugin *plugin, gpointer pdata)
 }
 
 
+
 /**
  * Clean up the whole generated tree
  *
  * @param model Target tree model
  * @param iter Tree row's iter of the header of tree
  */
-void
-tep_tree_cleanup(GtkTreeModel *model, GtkTreeIter *iter)
+void tep_tree_cleanup(GtkTreeModel *model, GtkTreeIter *iter)
 {
     g_print("%s", tep_get_program_code(model));
     do
@@ -4605,6 +4564,7 @@ tep_tree_cleanup(GtkTreeModel *model, GtkTreeIter *iter)
         tep_tree_clean_row(model, iter);
     } while(gtk_tree_model_iter_next(model, iter));
 }
+
 
 
 /**
@@ -4616,8 +4576,7 @@ tep_tree_cleanup(GtkTreeModel *model, GtkTreeIter *iter)
  *
  * @return Inner code for current iter
  */
-gchar *
-tep_get_component_inner_code(GtkTreeModel *model, GtkTreeIter *iter, int tab_count)
+gchar* tep_get_component_inner_code(GtkTreeModel *model, GtkTreeIter *iter, int tab_count)
 {
     if(model == NULL || iter == NULL) return "";
 
@@ -4648,6 +4607,7 @@ tep_get_component_inner_code(GtkTreeModel *model, GtkTreeIter *iter, int tab_cou
 }
 
 
+
 /**
  * Get inner codes recursively
  *
@@ -4657,8 +4617,7 @@ tep_get_component_inner_code(GtkTreeModel *model, GtkTreeIter *iter, int tab_cou
  *
  * @return Inner code for current iter
  */
-gchar *
-tep_get_component_inner_code_have_note(GtkTreeModel *model, GtkTreeIter *iter, int tab_count)
+gchar* tep_get_component_inner_code_have_note(GtkTreeModel *model, GtkTreeIter *iter, int tab_count)
 {
     if(model == NULL || iter == NULL) return "";
 
@@ -4703,8 +4662,7 @@ tep_get_component_inner_code_have_note(GtkTreeModel *model, GtkTreeIter *iter, i
  *
  * @return Generated full inner code
  */
-gchar *
-tep_get_program_code(GtkTreeModel *model)
+gchar* tep_get_program_code(GtkTreeModel *model)
 {
     gchar *cur_code = "";
     GtkTreeIter iter;
@@ -4715,6 +4673,7 @@ tep_get_program_code(GtkTreeModel *model)
     return cur_code;
 }
 
+
 /**
  * Synthesize the inner code to export XML code
  *
@@ -4722,8 +4681,7 @@ tep_get_program_code(GtkTreeModel *model)
  *
  * @return Generated full inner code
  */
-gchar *
-tep_get_program_code_have_state(GtkTreeModel *model)
+gchar* tep_get_program_code_have_state(GtkTreeModel *model)
 {
     gchar *cur_code = "";
     GtkTreeIter iter;
@@ -4737,9 +4695,8 @@ tep_get_program_code_have_state(GtkTreeModel *model)
 
 
 // 递归保存 TreeStore 数据到文件
-gchar*
-save_tree_store(GtkTreeModel *model,GtkTreeIter *iter , int dep) {
-
+gchar* save_tree_store(GtkTreeModel* model,GtkTreeIter* iter , int dep)
+{
     gchar* ret = "";
     // 递归保存子节点
     do
@@ -4761,9 +4718,10 @@ save_tree_store(GtkTreeModel *model,GtkTreeIter *iter , int dep) {
 
 static void start_element_handler(GMarkupParseContext *context, const gchar *element_name,
                                   const gchar **attribute_names, const gchar **attribute_values,
-                                  gpointer user_data, GError **error) {
-
-    for (int i = 0; attribute_names[i] != NULL; ++i) {
+                                  gpointer user_data, GError **error)
+{
+    for (int i = 0; attribute_names[i] != NULL; ++i)
+    {
         printf("attribute_names %s %s\n",attribute_names[i],attribute_values[i]);
         if(g_strcmp0(attribute_names[i],"state") == 0)
         {
@@ -4785,11 +4743,10 @@ static void start_element_handler(GMarkupParseContext *context, const gchar *ele
     gboolean isnode = FALSE;
     for(int i = 0;i < function_node_name->len;i++)
     {
-
         gchar* node = g_array_index(function_node_name, gchar*,i);
         if(g_strcmp0(node,element_name)==0)
         {
-//            printf("node %s\n",element_name);
+//          printf("node %s\n",element_name);
             isnode = TRUE;
             break;
         }
@@ -4823,7 +4780,8 @@ static void start_element_handler(GMarkupParseContext *context, const gchar *ele
 }
 
 static void text_handler(GMarkupParseContext *context, const gchar *text, gsize text_len,
-                         gpointer user_data, GError **error) {
+                         gpointer user_data, GError **error)
+{
     printf("%s %s (len = %d)\n","text_handler",text, text_len);
     XML_NODE node = g_array_index(xml_nodes,XML_NODE,xml_nodes->len-1);
     if(node.is_parms)
@@ -4858,24 +4816,23 @@ static void text_handler(GMarkupParseContext *context, const gchar *text, gsize 
     }
 }
 
+
 static void end_element_handler(GMarkupParseContext *context, const gchar *element_name,
-                                gpointer user_data, GError **error) {
+                                gpointer user_data, GError **error)
+{
     *(int *)user_data = *(int *)user_data - 1 ;
-
-
     printf("%s %s\n","end_element_handler",element_name);
-
 
 }
 
 /**
  * Save XML file
  */
-void
-tep_save_testcase(GtkMenuItem *menuitem, gpointer user_data)
+void tep_save_testcase(GtkMenuItem *menuitem, gpointer user_data)
 {
     FILE *file = fopen(default_open_file_path, "w");
-    if (file != NULL) {
+    if (file != NULL)
+    {
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case));
         gchar *code =tep_get_program_code_have_state(gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case)));
         printf("content:\n%s\nend\n",code);
@@ -4883,7 +4840,8 @@ tep_save_testcase(GtkMenuItem *menuitem, gpointer user_data)
         fclose(file);
         g_print("file save success!\n");
         debug_textbuff_output("file save success!\n");
-    } else {
+    } else
+    {
         g_print("Error opening the file for writing.\n");
     }
 }
@@ -4892,8 +4850,7 @@ tep_save_testcase(GtkMenuItem *menuitem, gpointer user_data)
 /**
  * Export XML file
  */
-void
-tep_export_testcase(GtkMenuItem *menuitem, gpointer user_data)
+void tep_export_testcase(GtkMenuItem *menuitem, gpointer user_data)
 {
     GtkWidget *dialog;
     GtkFileChooser *chooser;
@@ -4924,7 +4881,8 @@ tep_export_testcase(GtkMenuItem *menuitem, gpointer user_data)
 
         // Open the file for writing
         FILE *file = fopen(selected_path, "w");
-        if (file != NULL) {
+        if (file != NULL)
+        {
             GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(gen_case));
 
             //生存xml
@@ -4937,7 +4895,8 @@ tep_export_testcase(GtkMenuItem *menuitem, gpointer user_data)
             properities_file_save();
 
             fclose(file);
-        } else {
+        } else
+        {
             g_print("Error opening the file for writing.\n");
         }
         g_free(filename);
@@ -4994,10 +4953,12 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
 
         XML_NODE condition = g_array_index(xml_nodes,XML_NODE,index);
         printf(" condition name  %s\n",condition.name);
-        if(!condition.is_parms) {
+        if(!condition.is_parms)
+        {
             GValue value = G_VALUE_INIT;
             //初始化参数condition
-            if (g_strcmp0(condition.name, "condition") == 0) {
+            if (g_strcmp0(condition.name, "condition") == 0)
+            {
                 g_value_init(&value, G_TYPE_STRING);
 
                 const gchar* con =  condition.content->str;
@@ -5015,7 +4976,8 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
     }else if (g_strcmp0(name,"thread") == 0)
     {
         type = TEP_TYPE_THREAD;
-        for (int i = index; i < xml_nodes->len; ++i) {
+        for (int i = index; i < xml_nodes->len; ++i)
+        {
             XML_NODE node = g_array_index(xml_nodes,XML_NODE,i);
             if(g_strcmp0(node.name,"return") == 0)
             {
@@ -5052,7 +5014,8 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
 
         if(xmlNode.is_parms)
         {
-            if(xmlNode.contents->len == 3) {
+            if(xmlNode.contents->len == 3)
+            {
                 GValue value = G_VALUE_INIT;
 
                 //初始化参数count
@@ -5132,7 +5095,6 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
                     g_value_unset(&value);
                 }
 
-
                 //初始化参数count
                 g_value_init(&value, G_TYPE_UINT);
                 int i = 0;
@@ -5191,7 +5153,6 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
 
         if(xmlNode.is_parms)
         {
-
             if(xmlNode.contents->len == 3) {
 
                 GValue value = G_VALUE_INIT;
@@ -5201,7 +5162,6 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
 
                     if( g_strcmp0(next.name,"condition") == 0 && next.deep-1 == xmlNode.deep)
                     {
-
                         //初始化参数condition
                         g_value_init(&value, G_TYPE_STRING);
 
@@ -5215,7 +5175,6 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
                         break;
                     }
                 }
-
 
                 //初始化参数count
                 g_value_init(&value, G_TYPE_UINT);
@@ -5399,7 +5358,8 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
 
     if(xmlNode.is_parms)
     {
-        for (int i = 0; i < xmlNode.contents->len; ++i) {
+        for (int i = 0; i < xmlNode.contents->len; ++i)
+        {
             g_value_init(&value,G_TYPE_STRING);
 
 
@@ -5419,9 +5379,9 @@ gpointer function_name_get_gpointer(XML_NODE xmlNode,GtkTreeModel *model,int ind
     printf("content fill completed\n");
     g_value_unset(&value);
 
-
     return row_model;
 }
+
 
 /**
  * 解析xml name 的 类型
@@ -5527,6 +5487,7 @@ char* xml_filename_get_content(char* path)
 
     return buffer;
 }
+
 
 void if_node_handel(XML_NODE xmlnode,GtkTreeModel *model,int index)
 {
@@ -5702,7 +5663,6 @@ void node_handel(XML_NODE xmlnode,GtkTreeModel *model,int index)
             printf("delete %s\n",node.name);
         }
 
-
         //寻找try子节点
         for (int i = index; i < xml_nodes->len; ++i)
         {
@@ -5728,7 +5688,6 @@ void node_handel(XML_NODE xmlnode,GtkTreeModel *model,int index)
             g_array_remove_index(xml_nodes,index);
             printf("delete %s\n",node.name);
         }
-
 
         //寻找try子节点
         for (int i = index; i < xml_nodes->len; ++i)
@@ -5879,16 +5838,13 @@ int set_state(GtkTreeModel *model,GtkTreeIter iter)
             set_state(model,children);
         } while(gtk_tree_model_iter_next(model, &iter));
     }
-
-
 }
 
 
 /**
  * Export XML file
  */
-char*
-tep_xml_get_tree(char* file_name,gboolean is_open,gchar* code,GtkTreeIter par)
+char* tep_xml_get_tree(char* file_name,gboolean is_open,gchar* code,GtkTreeIter par)
 {
     printf("start tep_xml_get_tree()\n");
     gchar *xml_data = "";
@@ -5922,9 +5878,6 @@ tep_xml_get_tree(char* file_name,gboolean is_open,gchar* code,GtkTreeIter par)
     state = g_array_new(FALSE,FALSE,sizeof(gboolean));
     iter_array = g_array_new(FALSE,FALSE,sizeof(GtkTreeIter));
 
-
-
-
     // 设置回调函数
     GMarkupParser parser = {
             .start_element = start_element_handler,
@@ -5936,7 +5889,8 @@ tep_xml_get_tree(char* file_name,gboolean is_open,gchar* code,GtkTreeIter par)
     context = g_markup_parse_context_new(&parser, 0, &dep, NULL);
 
     // 开始解析XML数据
-    if(!g_markup_parse_context_parse(context, xml_data, -1, &error)){
+    if(!g_markup_parse_context_parse(context, xml_data, -1, &error))
+    {
         printf("%s\n",error->message);
         g_error_free(error);
     }
@@ -5977,7 +5931,6 @@ tep_xml_get_tree(char* file_name,gboolean is_open,gchar* code,GtkTreeIter par)
             }
         }
     }
-
 
     dep = 0;
     int index = 0;
@@ -6078,15 +6031,12 @@ tep_xml_get_tree(char* file_name,gboolean is_open,gchar* code,GtkTreeIter par)
     printf("----3 len = %d\n",state->len);
     g_array_free(state,TRUE);
 
-
-
 }
 
 /**
  * Export XML file
  */
-void
-tep_open_testcase(GtkMenuItem *menuitem, gpointer user_data)
+void tep_open_testcase(GtkMenuItem *menuitem, gpointer user_data)
 {
     // 创建文件选择对话框,PATH_SEPARATOR,"run.png")
     GtkWidget *dialog = gtk_file_chooser_dialog_new("选择要打开的文件",
@@ -6105,7 +6055,6 @@ tep_open_testcase(GtkMenuItem *menuitem, gpointer user_data)
 
     if (response == GTK_RESPONSE_ACCEPT)
     {
-
         // 获取用户选择的文件路径
         char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
         g_print("选择的文件：%s\n", filename);
